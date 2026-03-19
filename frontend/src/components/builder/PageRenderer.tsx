@@ -24,7 +24,38 @@ export type BuilderSchema = {
 };
 
 type Product = { id: string; name: string; price: number };
+type Post = { id: string; title: string; excerpt?: string };
 type PreviewMode = 'desktop' | 'tablet' | 'mobile';
+type BindingContext = { products: Product[]; posts: Post[] };
+
+function getValueByPath(context: BindingContext, path: string): unknown {
+  const parts = path.split('.');
+  let current: unknown = context;
+  for (const part of parts) {
+    if (current == null) return '';
+    if (Array.isArray(current)) {
+      const index = Number(part);
+      if (!Number.isInteger(index)) return '';
+      current = current[index];
+      continue;
+    }
+    if (typeof current === 'object') {
+      current = (current as Record<string, unknown>)[part];
+      continue;
+    }
+    return '';
+  }
+  return current ?? '';
+}
+
+function resolveBinding(value: unknown, context: BindingContext): string {
+  const text = String(value ?? '');
+  return text.replace(/\{\{\s*([^}]+)\s*\}\}/g, (_, token: string) => {
+    const resolved = getValueByPath(context, token.trim());
+    if (resolved === null || resolved === undefined) return '';
+    return String(resolved);
+  });
+}
 
 function applyStyle(style?: BlockStyle): CSSProperties {
   return {
@@ -36,13 +67,13 @@ function applyStyle(style?: BlockStyle): CSSProperties {
   };
 }
 
-function renderBlock(block: BuilderBlock, products: Product[], mode: PreviewMode): JSX.Element {
+function renderBlock(block: BuilderBlock, context: BindingContext, mode: PreviewMode): JSX.Element {
   if (block.type === 'row') {
     const cols = block.style?.responsive?.[mode]?.cols ?? block.children?.length ?? 1;
     return (
       <section key={block.id} className="block" style={applyStyle(block.style)}>
         <div className="row-grid" style={{ gridTemplateColumns: `repeat(${Math.max(cols, 1)}, minmax(0, 1fr))` }}>
-          {(block.children ?? []).map((child) => renderBlock(child, products, mode))}
+          {(block.children ?? []).map((child) => renderBlock(child, context, mode))}
         </div>
       </section>
     );
@@ -51,7 +82,7 @@ function renderBlock(block: BuilderBlock, products: Product[], mode: PreviewMode
   if (block.type === 'column') {
     return (
       <section key={block.id} className="block" style={applyStyle(block.style)}>
-        {(block.children ?? []).map((child) => renderBlock(child, products, mode))}
+        {(block.children ?? []).map((child) => renderBlock(child, context, mode))}
       </section>
     );
   }
@@ -59,8 +90,8 @@ function renderBlock(block: BuilderBlock, products: Product[], mode: PreviewMode
   if (block.type === 'hero') {
     return (
       <section key={block.id} className="block hero" style={applyStyle(block.style)}>
-        <h2>{String(block.props?.title ?? '')}</h2>
-        <p>{String(block.props?.subtitle ?? '')}</p>
+        <h2>{resolveBinding(block.props?.title, context)}</h2>
+        <p>{resolveBinding(block.props?.subtitle, context)}</p>
       </section>
     );
   }
@@ -68,35 +99,58 @@ function renderBlock(block: BuilderBlock, products: Product[], mode: PreviewMode
   if (block.type === 'text') {
     return (
       <section key={block.id} className="block" style={applyStyle(block.style)}>
-        <p>{String(block.props?.content ?? '')}</p>
+        <p>{resolveBinding(block.props?.content, context)}</p>
       </section>
     );
   }
 
   if (block.type === 'image') {
+    const src = resolveBinding(block.props?.src, context);
+    const alt = resolveBinding(block.props?.alt, context) || 'image';
     return (
       <section key={block.id} className="block" style={applyStyle(block.style)}>
-        <img className="block-image" src={String(block.props?.src ?? '')} alt={String(block.props?.alt ?? 'image')} />
+        <img className="block-image" src={src} alt={alt} />
       </section>
     );
   }
 
   if (block.type === 'button') {
+    const href = resolveBinding(block.props?.href, context) || '#';
+    const label = resolveBinding(block.props?.label, context) || 'Button';
     return (
       <section key={block.id} className="block" style={applyStyle(block.style)}>
-        <a href={String(block.props?.href ?? '#')} className="cta-link">
-          {String(block.props?.label ?? 'Button')}
+        <a href={href} className="cta-link">
+          {label}
         </a>
       </section>
     );
   }
 
-  const limit = Number(block.props?.limit ?? 6);
+  const limit = Number(resolveBinding(block.props?.limit ?? 6, context) || 6);
+  const source = String(block.props?.source ?? 'products');
+  const gridTitle = resolveBinding(block.props?.title ?? 'Featured Products', context);
+
+  if (source === 'posts') {
+    return (
+      <section key={block.id} className="block" style={applyStyle(block.style)}>
+        <h3>{gridTitle || 'Featured Posts'}</h3>
+        <div className="cards">
+          {context.posts.slice(0, limit).map((item) => (
+            <article key={item.id}>
+              <h4>{item.title}</h4>
+              <p>{item.excerpt ?? ''}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section key={block.id} className="block" style={applyStyle(block.style)}>
-      <h3>{String(block.props?.title ?? 'Featured Products')}</h3>
+      <h3>{gridTitle}</h3>
       <div className="cards">
-        {products.slice(0, limit).map((item) => (
+        {context.products.slice(0, limit).map((item) => (
           <article key={item.id}>
             <h4>{item.name}</h4>
             <p>${item.price}</p>
@@ -107,11 +161,12 @@ function renderBlock(block: BuilderBlock, products: Product[], mode: PreviewMode
   );
 }
 
-export function PageRenderer(props: { schema: BuilderSchema; products?: Product[]; mode?: PreviewMode }) {
-  const { schema, products = [], mode = 'desktop' } = props;
+export function PageRenderer(props: { schema: BuilderSchema; products?: Product[]; posts?: Post[]; mode?: PreviewMode }) {
+  const { schema, products = [], posts = [], mode = 'desktop' } = props;
+  const context: BindingContext = { products, posts };
   return (
     <div className={`builder-preview mode-${mode}`}>
-      {schema.blocks.map((block) => renderBlock(block, products, mode))}
+      {schema.blocks.map((block) => renderBlock(block, context, mode))}
     </div>
   );
 }
@@ -126,7 +181,7 @@ export const defaultBuilderSchema: BuilderSchema = {
         {
           id: 'hero-1',
           type: 'hero',
-          props: { title: 'Welcome to Moda', subtitle: 'Style that moves with you' },
+          props: { title: 'Welcome to Moda', subtitle: 'Top pick: {{products.0.name}}' },
           style: { padding: 16 }
         },
         {
@@ -143,4 +198,3 @@ export const defaultBuilderSchema: BuilderSchema = {
   ]
 };
 import type { CSSProperties, JSX } from 'react';
-

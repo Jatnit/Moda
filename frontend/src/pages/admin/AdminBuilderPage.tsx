@@ -3,6 +3,7 @@ import { api } from '../../api/client';
 import { BuilderBlock, BuilderSchema, defaultBuilderSchema, PageRenderer } from '../../components/builder/PageRenderer';
 
 type Product = { id: string; name: string; price: number };
+type Post = { id: string; title: string; excerpt?: string };
 type PreviewMode = 'desktop' | 'tablet' | 'mobile';
 
 function updateBlock(blocks: BuilderBlock[], id: string, updater: (block: BuilderBlock) => BuilderBlock): BuilderBlock[] {
@@ -20,6 +21,7 @@ export function AdminBuilderPage() {
   const [pageId, setPageId] = useState('');
   const [message, setMessage] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [mode, setMode] = useState<PreviewMode>('desktop');
   const [selectedBlockId, setSelectedBlockId] = useState<string>('');
   const [reusableName, setReusableName] = useState('hero-reusable');
@@ -46,9 +48,10 @@ export function AdminBuilderPage() {
 
   const load = async () => {
     try {
-      const [builderResponse, productResponse, templatesResponse, reusableResponse] = await Promise.all([
+      const [builderResponse, productResponse, postResponse, templatesResponse, reusableResponse] = await Promise.all([
         api.get(`/builder/pages/slug/${slug}`),
         api.get<Product[]>('/products'),
+        api.get<Post[]>('/posts'),
         api.get('/builder/templates'),
         api.get('/builder/reusable-blocks')
       ]);
@@ -64,6 +67,7 @@ export function AdminBuilderPage() {
         setVersions(versionsResponse.data);
       }
       setProducts(productResponse.data);
+      setPosts(postResponse.data);
       setTemplates(templatesResponse.data ?? []);
       setReusableBlocks((reusableResponse.data ?? []) as Array<{ name: string; block: BuilderBlock }>);
       setMessage('Loaded builder resources.');
@@ -199,6 +203,48 @@ export function AdminBuilderPage() {
     });
   };
 
+  const applyBindingPreset = (preset: 'hero-first-product' | 'text-first-post' | 'grid-posts') => {
+    if (!selectedBlockId) return;
+    const nextBlocks = updateBlock(schema.blocks, selectedBlockId, (block) => {
+      if (preset === 'hero-first-product' && block.type === 'hero') {
+        return {
+          ...block,
+          props: {
+            ...(block.props ?? {}),
+            title: '{{products.0.name}}',
+            subtitle: 'Price: ${{products.0.price}}'
+          }
+        };
+      }
+
+      if (preset === 'text-first-post' && block.type === 'text') {
+        return {
+          ...block,
+          props: {
+            ...(block.props ?? {}),
+            content: '{{posts.0.title}} - {{posts.0.excerpt}}'
+          }
+        };
+      }
+
+      if (preset === 'grid-posts' && block.type === 'product-grid') {
+        return {
+          ...block,
+          props: {
+            ...(block.props ?? {}),
+            source: 'posts',
+            title: 'Latest posts',
+            limit: 4
+          }
+        };
+      }
+
+      return block;
+    });
+
+    syncText({ blocks: nextBlocks });
+  };
+
   useEffect(() => {
     load();
   }, []);
@@ -266,6 +312,19 @@ export function AdminBuilderPage() {
         </button>
       </div>
 
+      <h3>Dynamic Data Binding</h3>
+      <div className="row-actions">
+        <button type="button" onClick={() => applyBindingPreset('hero-first-product')}>
+          Bind hero to first product
+        </button>
+        <button type="button" onClick={() => applyBindingPreset('text-first-post')}>
+          Bind text to first post
+        </button>
+        <button type="button" onClick={() => applyBindingPreset('grid-posts')}>
+          Switch grid to posts
+        </button>
+      </div>
+
       <h3>Section Templates</h3>
       <div className="row-actions">
         {templates.map((item, index) => (
@@ -327,11 +386,10 @@ export function AdminBuilderPage() {
           Mobile
         </button>
       </div>
-      <PageRenderer schema={schema} products={products} mode={mode} />
+      <PageRenderer schema={schema} products={products} posts={posts} mode={mode} />
 
       {selectedBlock ? <p>Selected block: {selectedBlock.id}</p> : null}
       <p>{message}</p>
     </section>
   );
 }
-

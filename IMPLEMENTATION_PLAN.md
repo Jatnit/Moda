@@ -298,6 +298,20 @@ project-root/
 - Đã chạy seed thật trên DB `ecommerce_cms`:
   - `posts=3`, `categories=3`, `tags=3`, `media=4`, `products=4`
 
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 11)
+
+- Bắt đầu Phase 3 (3.12) với Dynamic Data Binding:
+  - Renderer hỗ trợ token binding trong text props: `{{products.0.name}}`, `{{products.0.price}}`, `{{posts.0.title}}`, `{{posts.0.excerpt}}`
+  - Block `product-grid` hỗ trợ nguồn dữ liệu `source: 'products' | 'posts'`
+  - Admin Builder thêm preset thao tác nhanh:
+    - bind hero -> first product
+    - bind text -> first post
+    - switch grid -> posts
+  - Home/Admin Builder đều tải thêm `posts` để preview binding thực tế
+- Đã test:
+  - `frontend`: `npm run build` ✅
+  - `backend`: `npm run build` ✅, `npm test -- --runInBand` ✅
+
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
 
 - Hoàn thành bảo mật MVP core:
@@ -383,7 +397,7 @@ project-root/
 
 ### 3.12 Builder Level 3 (Advanced)
 
-- [ ] Dynamic data binding (product/post)
+- [x] Dynamic data binding (product/post)
 - [ ] Theme builder (template product/post/category)
 - [ ] Rule-based rendering (điều kiện hiển thị)
 - [ ] Custom CSS có kiểm soát quyền
@@ -412,7 +426,7 @@ project-root/
 - [ ] Performance/SEO checklist đạt
 - [ ] Ready deploy production
 
-**Trạng thái Phase 3:** ⬜ Not Started / 🟡 In Progress / ✅ Done  
+**Trạng thái Phase 3:** 🟡 In Progress  
 **Bằng chứng:** (test results, metrics, commit hash)
 
 ---
@@ -523,6 +537,11 @@ Sau mỗi lần hoàn thành task:
   - Lý do: người dùng xác nhận không dùng import WordPress.
   - Ảnh hưởng: DoD 3.11 chuyển tiêu chí từ "import WP thật" sang "seed dữ liệu nội bộ thật".
   - Người xác nhận: User confirmed
+
+- [2026-03-19] Quyết định: Dynamic data binding dùng cú pháp token `{{path}}` trong builder props để map nhanh product/post data.
+  - Lý do: không cần đổi DB/schema, tương thích trực tiếp với JSON schema hiện tại.
+  - Ảnh hưởng: renderer cần resolve token runtime; admin có thể bind qua preset hoặc JSON thủ công.
+  - Người xác nhận: Pending user review
 
 ---
 
