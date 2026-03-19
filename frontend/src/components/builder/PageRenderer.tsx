@@ -147,7 +147,7 @@ function renderBlock(block: BuilderBlock, context: BindingContext, mode: Preview
     const alt = resolveBinding(block.props?.alt, context) || 'image';
     return (
       <section key={block.id} className="block" style={applyStyle(block.style)}>
-        <img className="block-image" src={src} alt={alt} />
+        <img className="block-image" src={src} alt={alt} loading="lazy" decoding="async" />
       </section>
     );
   }

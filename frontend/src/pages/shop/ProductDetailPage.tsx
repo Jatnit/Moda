@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../api/client';
+import { useSeo } from '../../hooks/useSeo';
 import { addToCart } from '../../utils/cart';
 
 type Product = {
@@ -13,6 +14,11 @@ type Product = {
 export function ProductDetailPage() {
   const { id = '' } = useParams();
   const [product, setProduct] = useState<Product | null>(null);
+
+  useSeo({
+    title: product ? `Moda | ${product.name}` : 'Moda | Product',
+    description: product?.description ?? 'Product details and pricing.'
+  });
 
   useEffect(() => {
     api

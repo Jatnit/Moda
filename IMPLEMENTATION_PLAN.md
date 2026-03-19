@@ -384,6 +384,14 @@ project-root/
   - map các kiểm soát hiện có theo 10 nhóm OWASP
   - liệt kê residual risks + hành động hardening ưu tiên tiếp theo
 
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 19)
+
+- Triển khai Performance/SEO (3.14) đợt 1:
+  - thêm `frontend/public/robots.txt` + `frontend/public/sitemap.xml`
+  - thêm SEO meta runtime bằng `useSeo` hook (Home, Product list, Product detail)
+  - bổ sung `meta description` mặc định trong `index.html`
+  - ảnh block builder dùng `loading=\"lazy\"` + `decoding=\"async\"`
+
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
 
 - Hoàn thành bảo mật MVP core:
@@ -486,9 +494,9 @@ project-root/
 
 ### 3.14 Performance & SEO
 
-- [ ] sitemap/robots
-- [ ] meta SEO
-- [ ] image optimize + lazy load
+- [x] sitemap/robots
+- [x] meta SEO
+- [x] image optimize + lazy load
 - [ ] cải thiện Core Web Vitals
 
 ### 3.15 DoD Phase 3
@@ -648,6 +656,11 @@ Sau mỗi lần hoàn thành task:
 - [2026-03-19] Quyết định: Brute-force login lock theo cặp `email+ip` sau 5 lần sai trong 15 phút.
   - Lý do: giảm rủi ro credential stuffing mà không cần thêm hạ tầng ngoài.
   - Ảnh hưởng: người dùng nhập sai nhiều lần sẽ bị khóa tạm thời theo IP hiện tại.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: SEO phase đầu dùng sitemap/robots tĩnh và meta hook client-side.
+  - Lý do: triển khai nhanh cho kiến trúc SPA hiện tại.
+  - Ảnh hưởng: khi lên production domain cần thay `loc` trong sitemap theo domain thật.
   - Người xác nhận: Pending user review
 
 ---

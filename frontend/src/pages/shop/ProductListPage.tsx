@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
+import { useSeo } from '../../hooks/useSeo';
 
 type Product = {
   id: string;
@@ -9,6 +10,11 @@ type Product = {
 };
 
 export function ProductListPage() {
+  useSeo({
+    title: 'Moda | Products',
+    description: 'Browse product catalog and discover the latest Moda items.'
+  });
+
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {

@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { BuilderSchema, defaultBuilderSchema, PageRenderer } from '../../components/builder/PageRenderer';
+import { useSeo } from '../../hooks/useSeo';
 
 export function HomePage() {
+  useSeo({
+    title: 'Moda | Home',
+    description: 'Moda ecommerce homepage with dynamic builder sections and featured products.'
+  });
+
   const [schema, setSchema] = useState<BuilderSchema>(defaultBuilderSchema);
   const [products, setProducts] = useState<Array<{ id: string; name: string; price: number }>>([]);
   const [posts, setPosts] = useState<Array<{ id: string; title: string; excerpt?: string }>>([]);
