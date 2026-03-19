@@ -343,6 +343,15 @@ project-root/
     - `SUPER_ADMIN/ADMIN`: publish, rollback
   - Swagger bổ sung bearer auth cho các endpoint protected
 
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 15)
+
+- Hoàn thành Theme builder templates cho product/post/category (3.12):
+  - mở rộng `GET /api/v1/builder/templates` với nhóm:
+    - `Template: Product Page`
+    - `Template: Post Page`
+    - `Template: Category Page`
+  - template mới dùng data-binding product/post sẵn có để cắm vào builder nhanh
+
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
 
 - Hoàn thành bảo mật MVP core:
@@ -429,7 +438,7 @@ project-root/
 ### 3.12 Builder Level 3 (Advanced)
 
 - [x] Dynamic data binding (product/post)
-- [ ] Theme builder (template product/post/category)
+- [x] Theme builder (template product/post/category)
 - [x] Rule-based rendering (điều kiện hiển thị)
 - [x] Custom CSS có kiểm soát quyền
 - [x] Permission chi tiết theo vai trò
@@ -587,6 +596,11 @@ Sau mỗi lần hoàn thành task:
 - [2026-03-19] Quyết định: Builder API dùng RBAC chi tiết theo vai trò cho endpoint quản trị.
   - Lý do: tách rõ quyền edit và quyền publish/rollback.
   - Ảnh hưởng: người dùng chưa login hoặc role CUSTOMER sẽ không gọi được endpoint admin builder.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: Theme builder phase đầu triển khai bằng template presets (product/post/category) qua endpoint templates.
+  - Lý do: đạt nhanh use-case theme page mà không cần thêm model DB mới.
+  - Ảnh hưởng: giai đoạn sau có thể tách template store riêng nếu cần quản trị sâu hơn.
   - Người xác nhận: Pending user review
 
 ---

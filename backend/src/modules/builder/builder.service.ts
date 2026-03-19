@@ -161,6 +161,51 @@ export class BuilderService {
       {
         name: 'Product Showcase',
         blocks: [{ id: `grid-${Date.now()}`, type: 'product-grid', props: { title: 'Featured', limit: 6 } }]
+      },
+      {
+        name: 'Template: Product Page',
+        blocks: [
+          {
+            id: `hero-product-${Date.now()}`,
+            type: 'hero',
+            props: { title: '{{products.0.name}}', subtitle: 'Price: ${{products.0.price}}' }
+          },
+          {
+            id: `product-grid-${Date.now()}`,
+            type: 'product-grid',
+            props: { title: 'Related Products', source: 'products', limit: 4 }
+          }
+        ]
+      },
+      {
+        name: 'Template: Post Page',
+        blocks: [
+          {
+            id: `hero-post-${Date.now()}`,
+            type: 'hero',
+            props: { title: '{{posts.0.title}}', subtitle: '{{posts.0.excerpt}}' }
+          },
+          {
+            id: `post-grid-${Date.now()}`,
+            type: 'product-grid',
+            props: { title: 'Latest Posts', source: 'posts', limit: 4 }
+          }
+        ]
+      },
+      {
+        name: 'Template: Category Page',
+        blocks: [
+          {
+            id: `category-text-${Date.now()}`,
+            type: 'text',
+            props: { content: 'Category landing powered by builder theme template.' }
+          },
+          {
+            id: `category-products-${Date.now()}`,
+            type: 'product-grid',
+            props: { title: 'Category Products', source: 'products', limit: 8 }
+          }
+        ]
       }
     ];
   }
