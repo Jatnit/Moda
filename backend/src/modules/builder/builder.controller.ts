@@ -36,4 +36,29 @@ export class BuilderController {
   preview(@Param('id') id: string) {
     return this.builderService.preview(id);
   }
+
+  @Get('pages/:id/versions')
+  listVersions(@Param('id') id: string) {
+    return this.builderService.listVersions(id);
+  }
+
+  @Post('pages/:id/rollback')
+  rollback(@Param('id') id: string, @Body() body: { versionId: string }) {
+    return this.builderService.rollback(id, body.versionId);
+  }
+
+  @Get('templates')
+  templates() {
+    return this.builderService.listTemplates();
+  }
+
+  @Get('reusable-blocks')
+  listReusableBlocks() {
+    return this.builderService.listReusableBlocks();
+  }
+
+  @Post('reusable-blocks')
+  saveReusableBlock(@Body() body: { name: string; block: unknown }) {
+    return this.builderService.saveReusableBlock(body);
+  }
 }

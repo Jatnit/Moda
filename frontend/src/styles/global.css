@@ -171,6 +171,39 @@ button.ghost {
 .row-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.row-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.block-item {
+  border: 1px dashed #9fb1c8;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: grab;
+}
+
+.block-item.active {
+  border-color: var(--primary);
+  background: #eef4ff;
+}
+
+.builder-preview.mode-desktop {
+  max-width: 100%;
+}
+
+.builder-preview.mode-tablet {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.builder-preview.mode-mobile {
+  max-width: 420px;
+  margin: 0 auto;
 }
 
 pre {

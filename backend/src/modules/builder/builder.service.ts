@@ -86,4 +86,82 @@ export class BuilderService {
     });
     return { page, latest };
   }
+
+  listVersions(pageId: string) {
+    return this.prisma.pageVersion.findMany({
+      where: { pageId },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async rollback(pageId: string, versionId: string) {
+    const version = await this.prisma.pageVersion.findFirst({
+      where: { id: versionId, pageId }
+    });
+    if (!version) {
+      throw new NotFoundException('Version not found');
+    }
+
+    const page = await this.prisma.page.update({
+      where: { id: pageId },
+      data: { version: { increment: 1 }, status: PageStatus.DRAFT }
+    });
+
+    const rollbackVersion = await this.prisma.pageVersion.create({
+      data: {
+        pageId,
+        jsonSchema: version.jsonSchema as Prisma.InputJsonValue,
+        createdBy: version.createdBy
+      }
+    });
+
+    return { page, rollbackVersion };
+  }
+
+  async listReusableBlocks() {
+    const setting = await this.prisma.setting.findUnique({
+      where: { key: 'builder_reusable_blocks' }
+    });
+    return (setting?.value ?? []) as unknown[];
+  }
+
+  async saveReusableBlock(input: { name: string; block: unknown }) {
+    const list = (await this.listReusableBlocks()) as Array<{ name: string; block: unknown }>;
+    const existingIndex = list.findIndex((item) => item.name === input.name);
+    if (existingIndex >= 0) {
+      list[existingIndex] = input;
+    } else {
+      list.push(input);
+    }
+
+    await this.prisma.setting.upsert({
+      where: { key: 'builder_reusable_blocks' },
+      update: { value: list as Prisma.InputJsonValue },
+      create: { key: 'builder_reusable_blocks', value: list as Prisma.InputJsonValue }
+    });
+
+    return list;
+  }
+
+  listTemplates() {
+    return [
+      {
+        name: 'Hero + CTA',
+        blocks: [
+          { id: `hero-${Date.now()}`, type: 'hero', props: { title: 'Your Main Headline', subtitle: 'Subtitle' } },
+          { id: `button-${Date.now()}`, type: 'button', props: { label: 'Shop Now', href: '/products' } }
+        ]
+      },
+      {
+        name: 'Feature Text',
+        blocks: [
+          { id: `text-${Date.now()}`, type: 'text', props: { content: 'Tell users your value proposition.' } }
+        ]
+      },
+      {
+        name: 'Product Showcase',
+        blocks: [{ id: `grid-${Date.now()}`, type: 'product-grid', props: { title: 'Featured', limit: 6 } }]
+      }
+    ];
+  }
 }

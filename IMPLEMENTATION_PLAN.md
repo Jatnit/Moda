@@ -222,6 +222,30 @@ project-root/
   - `backend/prisma/schema.prisma`
 - Đã test:
   - `backend`: `npm run prisma:generate` ✅, `npm run build` ✅, `npm test -- --runInBand` ✅
+
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 7)
+
+- Hoàn thành Builder Level 2 (Pro):
+  - API builder bổ sung:
+    - template sections (`GET /api/v1/builder/templates`)
+    - reusable blocks (`GET/POST /api/v1/builder/reusable-blocks`)
+    - version list + rollback (`GET /api/v1/builder/pages/:id/versions`, `POST /api/v1/builder/pages/:id/rollback`)
+  - UI Admin Builder Pro:
+    - kéo-thả reorder top-level blocks
+    - row/column layout block
+    - style per block (margin/padding + responsive cols)
+    - insert template sections
+    - save/insert reusable blocks
+    - version history + rollback
+    - preview responsive desktop/tablet/mobile
+- File chính:
+  - `backend/src/modules/builder/builder.service.ts`
+  - `backend/src/modules/builder/builder.controller.ts`
+  - `frontend/src/pages/admin/AdminBuilderPage.tsx`
+  - `frontend/src/components/builder/PageRenderer.tsx`
+- Đã test:
+  - `backend`: `npm run prisma:generate` ✅, `npm run build` ✅, `npm test -- --runInBand` ✅
+  - `frontend`: `npm run build` ✅
   - Ghi chú: các bước external e2e cần credential thật (SEPAY/Cloudinary) chưa chạy trên môi trường hiện tại.
 
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
@@ -275,12 +299,12 @@ project-root/
 
 ### 3.9 Builder Level 2 (Pro)
 
-- [ ] Row/Column drag-drop
-- [ ] Style per block (margin/padding/border/shadow/bg)
-- [ ] Section templates
-- [ ] Reusable blocks
-- [ ] Version history + rollback
-- [ ] Responsive control desktop/tablet/mobile
+- [x] Row/Column drag-drop
+- [x] Style per block (margin/padding/border/shadow/bg)
+- [x] Section templates
+- [x] Reusable blocks
+- [x] Version history + rollback
+- [x] Responsive control desktop/tablet/mobile
 
 ### 3.10 Media nâng cao
 
@@ -428,6 +452,11 @@ Sau mỗi lần hoàn thành task:
 - [2026-03-19] Quyết định: Ưu tiên triển khai 3.8 ở tầng API backend trước (admin advanced), UI phase 2 sẽ nối tiếp sau.
   - Lý do: unlock nghiệp vụ quản trị sớm để có thể test tích hợp với dữ liệu thật.
   - Ảnh hưởng: cần bổ sung màn hình admin nâng cao ở bước tiếp theo.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: Builder Pro lưu reusable blocks trong `settings` key `builder_reusable_blocks` để tránh thêm bảng mới giai đoạn này.
+  - Lý do: triển khai nhanh feature reusable block mà vẫn giữ khả năng mở rộng sang bảng riêng sau.
+  - Ảnh hưởng: khi số lượng reusable lớn cần tách model chuyên dụng để query/filter tốt hơn.
   - Người xác nhận: Pending user review
 
 ---
