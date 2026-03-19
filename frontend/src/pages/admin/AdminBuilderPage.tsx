@@ -408,6 +408,18 @@ export function AdminBuilderPage() {
         style={{ width: '100%' }}
       />
 
+      <h3>Custom CSS (Controlled)</h3>
+      <textarea
+        value={schema.customCss ?? ''}
+        onChange={(e) => {
+          const next = { ...schema, customCss: e.target.value };
+          syncText(next);
+        }}
+        rows={8}
+        style={{ width: '100%' }}
+        placeholder=".builder-preview .hero { border-radius: 24px; }"
+      />
+
       <h3>Responsive Preview</h3>
       <div className="row-actions">
         <button type="button" onClick={() => setMode('desktop')}>

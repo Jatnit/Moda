@@ -325,6 +325,24 @@ project-root/
     - show when post exists
     - clear visibility rule
 
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 13)
+
+- Hoàn thành Custom CSS có kiểm soát cho Builder (3.12):
+  - schema hỗ trợ `customCss`
+  - renderer chỉ inject CSS sau khi sanitize cơ bản:
+    - chặn token nguy hiểm: `<`, `</`, `javascript:`, `@import`, `expression(`
+    - giới hạn độ dài 4000 ký tự
+  - Admin Builder có textarea chỉnh `customCss` và preview trực tiếp
+
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 14)
+
+- Hoàn thành Permission chi tiết theo vai trò cho Builder API (3.12):
+  - `publishedBySlug` vẫn public
+  - endpoint quản trị builder yêu cầu JWT + RBAC:
+    - `SUPER_ADMIN/ADMIN/EDITOR`: xem/sửa draft, preview, templates, reusable blocks
+    - `SUPER_ADMIN/ADMIN`: publish, rollback
+  - Swagger bổ sung bearer auth cho các endpoint protected
+
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
 
 - Hoàn thành bảo mật MVP core:
@@ -413,8 +431,8 @@ project-root/
 - [x] Dynamic data binding (product/post)
 - [ ] Theme builder (template product/post/category)
 - [x] Rule-based rendering (điều kiện hiển thị)
-- [ ] Custom CSS có kiểm soát quyền
-- [ ] Permission chi tiết theo vai trò
+- [x] Custom CSS có kiểm soát quyền
+- [x] Permission chi tiết theo vai trò
 - [ ] i18n-ready architecture
 
 ### 3.13 Security hardening
@@ -559,6 +577,16 @@ Sau mỗi lần hoàn thành task:
 - [2026-03-19] Quyết định: Rule-based rendering dùng `props.visibility` tại block-level.
   - Lý do: cho phép điều kiện hiển thị mà không phá schema block hiện tại.
   - Ảnh hưởng: JSON schema hỗ trợ rule đơn giản `exists/equals/not_equals` theo data path.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: Custom CSS builder chỉ cho phép qua sanitizer cơ bản và giới hạn độ dài.
+  - Lý do: cho phép tùy biến giao diện nhưng giảm rủi ro payload CSS nguy hiểm.
+  - Ảnh hưởng: một số kỹ thuật CSS nâng cao (như `@import`) sẽ bị chặn.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: Builder API dùng RBAC chi tiết theo vai trò cho endpoint quản trị.
+  - Lý do: tách rõ quyền edit và quyền publish/rollback.
+  - Ảnh hưởng: người dùng chưa login hoặc role CUSTOMER sẽ không gọi được endpoint admin builder.
   - Người xác nhận: Pending user review
 
 ---

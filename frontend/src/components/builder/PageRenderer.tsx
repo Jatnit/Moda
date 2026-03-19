@@ -21,6 +21,7 @@ export type BuilderBlock = {
 
 export type BuilderSchema = {
   blocks: BuilderBlock[];
+  customCss?: string;
 };
 
 type Product = { id: string; name: string; price: number };
@@ -60,6 +61,16 @@ function resolveBinding(value: unknown, context: BindingContext): string {
     if (resolved === null || resolved === undefined) return '';
     return String(resolved);
   });
+}
+
+function sanitizeCustomCss(input: string | undefined): string {
+  const raw = String(input ?? '').trim();
+  if (!raw) return '';
+  if (raw.length > 4000) return '';
+  const lowered = raw.toLowerCase();
+  const blocked = ['<', '</', 'javascript:', '@import', 'expression('];
+  if (blocked.some((token) => lowered.includes(token))) return '';
+  return raw;
 }
 
 function passesVisibility(rule: VisibilityRule | undefined, context: BindingContext): boolean {
@@ -191,8 +202,10 @@ function renderBlock(block: BuilderBlock, context: BindingContext, mode: Preview
 export function PageRenderer(props: { schema: BuilderSchema; products?: Product[]; posts?: Post[]; mode?: PreviewMode }) {
   const { schema, products = [], posts = [], mode = 'desktop' } = props;
   const context: BindingContext = { products, posts };
+  const safeCustomCss = sanitizeCustomCss(schema.customCss);
   return (
     <div className={`builder-preview mode-${mode}`}>
+      {safeCustomCss ? <style>{safeCustomCss}</style> : null}
       {schema.blocks.map((block) => renderBlock(block, context, mode))}
     </div>
   );
