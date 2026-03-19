@@ -312,6 +312,19 @@ project-root/
   - `frontend`: `npm run build` ✅
   - `backend`: `npm run build` ✅, `npm test -- --runInBand` ✅
 
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 12)
+
+- Hoàn thành Rule-based rendering cho Builder (3.12):
+  - mỗi block có thể gắn `props.visibility`:
+    - `path`: đường dẫn dữ liệu (vd: `products.0.id`, `posts.0.id`)
+    - `operator`: `exists | equals | not_equals`
+    - `value`: giá trị so sánh (khi dùng `equals/not_equals`)
+  - Renderer sẽ bỏ qua block nếu không thỏa rule hiển thị
+  - Admin Builder thêm preset thao tác nhanh:
+    - show when product exists
+    - show when post exists
+    - clear visibility rule
+
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
 
 - Hoàn thành bảo mật MVP core:
@@ -399,7 +412,7 @@ project-root/
 
 - [x] Dynamic data binding (product/post)
 - [ ] Theme builder (template product/post/category)
-- [ ] Rule-based rendering (điều kiện hiển thị)
+- [x] Rule-based rendering (điều kiện hiển thị)
 - [ ] Custom CSS có kiểm soát quyền
 - [ ] Permission chi tiết theo vai trò
 - [ ] i18n-ready architecture
@@ -541,6 +554,11 @@ Sau mỗi lần hoàn thành task:
 - [2026-03-19] Quyết định: Dynamic data binding dùng cú pháp token `{{path}}` trong builder props để map nhanh product/post data.
   - Lý do: không cần đổi DB/schema, tương thích trực tiếp với JSON schema hiện tại.
   - Ảnh hưởng: renderer cần resolve token runtime; admin có thể bind qua preset hoặc JSON thủ công.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: Rule-based rendering dùng `props.visibility` tại block-level.
+  - Lý do: cho phép điều kiện hiển thị mà không phá schema block hiện tại.
+  - Ảnh hưởng: JSON schema hỗ trợ rule đơn giản `exists/equals/not_equals` theo data path.
   - Người xác nhận: Pending user review
 
 ---

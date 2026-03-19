@@ -27,6 +27,11 @@ type Product = { id: string; name: string; price: number };
 type Post = { id: string; title: string; excerpt?: string };
 type PreviewMode = 'desktop' | 'tablet' | 'mobile';
 type BindingContext = { products: Product[]; posts: Post[] };
+type VisibilityRule = {
+  path: string;
+  operator?: 'exists' | 'equals' | 'not_equals';
+  value?: string | number | boolean;
+};
 
 function getValueByPath(context: BindingContext, path: string): unknown {
   const parts = path.split('.');
@@ -57,6 +62,23 @@ function resolveBinding(value: unknown, context: BindingContext): string {
   });
 }
 
+function passesVisibility(rule: VisibilityRule | undefined, context: BindingContext): boolean {
+  if (!rule?.path) return true;
+  const current = getValueByPath(context, rule.path);
+  const operator = rule.operator ?? 'exists';
+
+  if (operator === 'exists') {
+    if (Array.isArray(current)) return current.length > 0;
+    return current !== undefined && current !== null && String(current) !== '';
+  }
+
+  if (operator === 'equals') {
+    return String(current ?? '') === String(rule.value ?? '');
+  }
+
+  return String(current ?? '') !== String(rule.value ?? '');
+}
+
 function applyStyle(style?: BlockStyle): CSSProperties {
   return {
     margin: style?.margin ?? 0,
@@ -67,7 +89,12 @@ function applyStyle(style?: BlockStyle): CSSProperties {
   };
 }
 
-function renderBlock(block: BuilderBlock, context: BindingContext, mode: PreviewMode): JSX.Element {
+function renderBlock(block: BuilderBlock, context: BindingContext, mode: PreviewMode): JSX.Element | null {
+  const visibility = block.props?.visibility as VisibilityRule | undefined;
+  if (!passesVisibility(visibility, context)) {
+    return null;
+  }
+
   if (block.type === 'row') {
     const cols = block.style?.responsive?.[mode]?.cols ?? block.children?.length ?? 1;
     return (

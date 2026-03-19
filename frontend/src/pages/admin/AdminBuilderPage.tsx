@@ -245,6 +245,27 @@ export function AdminBuilderPage() {
     syncText({ blocks: nextBlocks });
   };
 
+  const applyVisibilityPreset = (preset: 'products-exists' | 'posts-exists' | 'clear') => {
+    if (!selectedBlockId) return;
+    const nextBlocks = updateBlock(schema.blocks, selectedBlockId, (block) => {
+      const nextProps = { ...(block.props ?? {}) } as Record<string, unknown>;
+      if (preset === 'clear') {
+        delete nextProps.visibility;
+      } else {
+        nextProps.visibility = {
+          path: preset === 'products-exists' ? 'products.0.id' : 'posts.0.id',
+          operator: 'exists'
+        };
+      }
+      return {
+        ...block,
+        props: nextProps
+      };
+    });
+
+    syncText({ blocks: nextBlocks });
+  };
+
   useEffect(() => {
     load();
   }, []);
@@ -322,6 +343,19 @@ export function AdminBuilderPage() {
         </button>
         <button type="button" onClick={() => applyBindingPreset('grid-posts')}>
           Switch grid to posts
+        </button>
+      </div>
+
+      <h3>Rule-based Rendering</h3>
+      <div className="row-actions">
+        <button type="button" onClick={() => applyVisibilityPreset('products-exists')}>
+          Show when product exists
+        </button>
+        <button type="button" onClick={() => applyVisibilityPreset('posts-exists')}>
+          Show when post exists
+        </button>
+        <button type="button" onClick={() => applyVisibilityPreset('clear')}>
+          Clear visibility rule
         </button>
       </div>
 
