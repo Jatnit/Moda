@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PageStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { sanitizeDeep } from '../../common/utils/sanitize.util';
 
 @Injectable()
 export class BuilderService {
@@ -19,6 +20,7 @@ export class BuilderService {
   }
 
   async saveDraft(input: { slug: string; jsonSchema: unknown; createdBy?: string }) {
+    const cleanedSchema = sanitizeDeep(input.jsonSchema);
     const page = await this.prisma.page.upsert({
       where: { slug: input.slug },
       update: { status: PageStatus.DRAFT, version: { increment: 1 } },
@@ -28,24 +30,47 @@ export class BuilderService {
     const version = await this.prisma.pageVersion.create({
       data: {
         pageId: page.id,
-        jsonSchema: input.jsonSchema as Prisma.InputJsonValue,
+        jsonSchema: cleanedSchema as Prisma.InputJsonValue,
         createdBy: input.createdBy
+      }
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: input.createdBy,
+        action: 'BUILDER_SAVE_DRAFT',
+        resource: 'builder_page',
+        resourceId: page.id,
+        metadata: {
+          slug: input.slug,
+          versionId: version.id
+        }
       }
     });
 
     return { page, version };
   }
 
-  async publish(pageId: string) {
+  async publish(pageId: string, actorId?: string) {
     const page = await this.prisma.page.findUnique({ where: { id: pageId } });
     if (!page) {
       throw new NotFoundException('Page not found');
     }
 
-    return this.prisma.page.update({
+    const updated = await this.prisma.page.update({
       where: { id: pageId },
       data: { status: PageStatus.PUBLISHED }
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actorId,
+        action: 'BUILDER_PUBLISH',
+        resource: 'builder_page',
+        resourceId: pageId
+      }
+    });
+    return updated;
   }
 
   async preview(pageId: string) {
@@ -94,7 +119,7 @@ export class BuilderService {
     });
   }
 
-  async rollback(pageId: string, versionId: string) {
+  async rollback(pageId: string, versionId: string, actorId?: string) {
     const version = await this.prisma.pageVersion.findFirst({
       where: { id: versionId, pageId }
     });
@@ -111,7 +136,20 @@ export class BuilderService {
       data: {
         pageId,
         jsonSchema: version.jsonSchema as Prisma.InputJsonValue,
-        createdBy: version.createdBy
+        createdBy: actorId ?? version.createdBy
+      }
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actorId,
+        action: 'BUILDER_ROLLBACK',
+        resource: 'builder_page',
+        resourceId: pageId,
+        metadata: {
+          fromVersionId: versionId,
+          rollbackVersionId: rollbackVersion.id
+        }
       }
     });
 
@@ -125,19 +163,29 @@ export class BuilderService {
     return (setting?.value ?? []) as unknown[];
   }
 
-  async saveReusableBlock(input: { name: string; block: unknown }) {
+  async saveReusableBlock(input: { name: string; block: unknown; actorId?: string }) {
     const list = (await this.listReusableBlocks()) as Array<{ name: string; block: unknown }>;
+    const cleanedBlock = sanitizeDeep(input.block);
     const existingIndex = list.findIndex((item) => item.name === input.name);
     if (existingIndex >= 0) {
-      list[existingIndex] = input;
+      list[existingIndex] = { name: input.name, block: cleanedBlock };
     } else {
-      list.push(input);
+      list.push({ name: input.name, block: cleanedBlock });
     }
 
     await this.prisma.setting.upsert({
       where: { key: 'builder_reusable_blocks' },
       update: { value: list as Prisma.InputJsonValue },
       create: { key: 'builder_reusable_blocks', value: list as Prisma.InputJsonValue }
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: input.actorId,
+        action: 'BUILDER_SAVE_REUSABLE',
+        resource: 'builder_reusable_block',
+        metadata: { name: input.name }
+      }
     });
 
     return list;

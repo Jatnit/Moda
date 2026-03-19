@@ -9,6 +9,10 @@ import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
+  private static readonly failedAttempts = new Map<string, { count: number; lockUntil?: number }>();
+  private static readonly maxAttempts = 5;
+  private static readonly lockDurationMs = 15 * 60_000;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -30,14 +34,38 @@ export class AuthService {
     return this.issueTokens(user.id, user.role, user.email);
   }
 
-  async login(input: LoginDto) {
+  async login(input: LoginDto, ipAddress?: string) {
+    const attemptKey = `${input.email.toLowerCase()}|${ipAddress ?? 'unknown'}`;
+    this.assertNotBlocked(attemptKey);
+
     const user = await this.prisma.user.findUnique({
       where: { email: input.email.toLowerCase() }
     });
 
     if (!user || !(await argon2.verify(user.passwordHash, input.password))) {
+      this.recordFailure(attemptKey);
+      await this.writeAudit({
+        action: 'AUTH_LOGIN_FAILED',
+        resource: 'auth',
+        metadata: {
+          email: input.email.toLowerCase(),
+          ipAddress: ipAddress ?? null
+        }
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    this.resetFailures(attemptKey);
+    await this.writeAudit({
+      userId: user.id,
+      action: 'AUTH_LOGIN_SUCCESS',
+      resource: 'auth',
+      resourceId: user.id,
+      metadata: {
+        email: user.email,
+        ipAddress: ipAddress ?? null
+      }
+    });
 
     return this.issueTokens(user.id, user.role, user.email);
   }
@@ -69,6 +97,12 @@ export class AuthService {
       where: { id: userId },
       data: { refreshTokenHash: null }
     });
+    await this.writeAudit({
+      userId,
+      action: 'AUTH_LOGOUT',
+      resource: 'auth',
+      resourceId: userId
+    });
     return { ok: true };
   }
 
@@ -93,5 +127,52 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken, user: { id: userId, email, role } };
+  }
+
+  private assertNotBlocked(key: string) {
+    const state = AuthService.failedAttempts.get(key);
+    if (!state?.lockUntil) return;
+    if (Date.now() > state.lockUntil) {
+      AuthService.failedAttempts.delete(key);
+      return;
+    }
+    throw new UnauthorizedException('Too many failed attempts. Try again later.');
+  }
+
+  private recordFailure(key: string) {
+    const state = AuthService.failedAttempts.get(key) ?? { count: 0 };
+    const nextCount = state.count + 1;
+    if (nextCount >= AuthService.maxAttempts) {
+      AuthService.failedAttempts.set(key, {
+        count: nextCount,
+        lockUntil: Date.now() + AuthService.lockDurationMs
+      });
+      return;
+    }
+    AuthService.failedAttempts.set(key, { count: nextCount });
+  }
+
+  private resetFailures(key: string) {
+    AuthService.failedAttempts.delete(key);
+  }
+
+  private async writeAudit(input: {
+    userId?: string;
+    action: string;
+    resource: string;
+    resourceId?: string;
+    metadata?: unknown;
+  }) {
+    const create = (this.prisma as any)?.auditLog?.create;
+    if (typeof create !== 'function') return;
+    await create({
+      data: {
+        userId: input.userId,
+        action: input.action,
+        resource: input.resource,
+        resourceId: input.resourceId,
+        metadata: input.metadata as any
+      }
+    });
   }
 }

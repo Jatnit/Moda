@@ -359,6 +359,31 @@ project-root/
   - thêm hook `useI18n()` và lưu locale vào `localStorage` (`moda_locale`)
   - `AppLayout` dùng key dịch cho menu và có switch ngôn ngữ VI/EN
 
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 17)
+
+- Triển khai Security hardening (3.13) đợt 1:
+  - CSRF double-submit token cho luồng auth dùng cookie:
+    - thêm `GET /api/v1/auth/csrf-token`
+    - `refresh/logout` bắt buộc `x-csrf-token` khớp cookie `csrf_token`
+    - login/register/refresh sẽ rotate `csrf_token`
+    - frontend `api client` tự gửi `x-csrf-token` cho request mutate
+  - XSS sanitize nâng cao:
+    - mở rộng `sanitizeText` (loại script/style, inline handlers, `javascript:`)
+    - thêm `sanitizeDeep` cho payload JSON lồng nhau
+    - áp dụng sanitize cho builder `saveDraft` và `saveReusableBlock`
+  - Brute-force protection mở rộng:
+    - lock theo cặp `email+ip` sau 5 lần sai, khóa 15 phút
+  - Audit log thao tác nhạy cảm:
+    - auth login success/failed + logout
+    - builder save draft/publish/rollback/save reusable
+
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 18)
+
+- Hoàn thành rà soát OWASP Top Risks (3.13):
+  - tạo tài liệu `SECURITY_OWASP_REVIEW.md`
+  - map các kiểm soát hiện có theo 10 nhóm OWASP
+  - liệt kê residual risks + hành động hardening ưu tiên tiếp theo
+
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
 
 - Hoàn thành bảo mật MVP core:
@@ -453,11 +478,11 @@ project-root/
 
 ### 3.13 Security hardening
 
-- [ ] CSRF đầy đủ
-- [ ] XSS sanitization nâng cao (builder input)
-- [ ] Brute force protection mở rộng
-- [ ] Audit log đầy đủ cho thao tác nhạy cảm
-- [ ] Rà soát theo OWASP Top Risks
+- [x] CSRF đầy đủ
+- [x] XSS sanitization nâng cao (builder input)
+- [x] Brute force protection mở rộng
+- [x] Audit log đầy đủ cho thao tác nhạy cảm
+- [x] Rà soát theo OWASP Top Risks
 
 ### 3.14 Performance & SEO
 
@@ -613,6 +638,16 @@ Sau mỗi lần hoàn thành task:
 - [2026-03-19] Quyết định: i18n phase đầu dùng dictionary nội bộ (`vi/en`) + context provider trên frontend.
   - Lý do: tạo nền tảng đa ngôn ngữ nhanh, không thêm dependency nặng.
   - Ảnh hưởng: khi mở rộng ngôn ngữ nhiều cần chuyển sang resource loader/cms translation store.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: CSRF áp dụng mô hình double-submit token cho luồng auth dùng cookie.
+  - Lý do: phù hợp kiến trúc hiện tại (refresh token nằm trong cookie) và triển khai nhanh.
+  - Ảnh hưởng: client cần gửi `x-csrf-token` cho request mutate liên quan auth.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: Brute-force login lock theo cặp `email+ip` sau 5 lần sai trong 15 phút.
+  - Lý do: giảm rủi ro credential stuffing mà không cần thêm hạ tầng ngoài.
+  - Ảnh hưởng: người dùng nhập sai nhiều lần sẽ bị khóa tạm thời theo IP hiện tại.
   - Người xác nhận: Pending user review
 
 ---

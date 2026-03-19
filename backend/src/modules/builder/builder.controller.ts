@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -6,6 +6,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { BuilderService } from './builder.service';
 import { UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 
 @ApiTags('builder')
 @Controller('builder')
@@ -37,16 +38,19 @@ export class BuilderController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
-  saveDraft(@Body() body: { slug: string; jsonSchema: unknown; createdBy?: string }) {
-    return this.builderService.saveDraft(body);
+  saveDraft(@Req() req: Request, @Body() body: { slug: string; jsonSchema: unknown }) {
+    return this.builderService.saveDraft({
+      ...body,
+      createdBy: String((req as any).user?.sub ?? '')
+    });
   }
 
   @Post('pages/:id/publish')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
-  publish(@Param('id') id: string) {
-    return this.builderService.publish(id);
+  publish(@Req() req: Request, @Param('id') id: string) {
+    return this.builderService.publish(id, String((req as any).user?.sub ?? ''));
   }
 
   @Get('pages/:id/preview')
@@ -69,8 +73,8 @@ export class BuilderController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
-  rollback(@Param('id') id: string, @Body() body: { versionId: string }) {
-    return this.builderService.rollback(id, body.versionId);
+  rollback(@Req() req: Request, @Param('id') id: string, @Body() body: { versionId: string }) {
+    return this.builderService.rollback(id, body.versionId, String((req as any).user?.sub ?? ''));
   }
 
   @Get('templates')
@@ -93,7 +97,10 @@ export class BuilderController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
-  saveReusableBlock(@Body() body: { name: string; block: unknown }) {
-    return this.builderService.saveReusableBlock(body);
+  saveReusableBlock(@Req() req: Request, @Body() body: { name: string; block: unknown }) {
+    return this.builderService.saveReusableBlock({
+      ...body,
+      actorId: String((req as any).user?.sub ?? '')
+    });
   }
 }

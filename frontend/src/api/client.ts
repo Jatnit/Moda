@@ -5,10 +5,27 @@ export const api = axios.create({
   withCredentials: true
 });
 
+function readCookie(name: string): string | undefined {
+  const part = document.cookie
+    .split(';')
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(`${name}=`));
+  if (!part) return undefined;
+  return decodeURIComponent(part.slice(name.length + 1));
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('moda_access_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  const method = (config.method ?? 'get').toLowerCase();
+  if (!['get', 'head', 'options'].includes(method)) {
+    const csrfToken = readCookie('csrf_token');
+    if (csrfToken) {
+      config.headers['x-csrf-token'] = csrfToken;
+    }
   }
   return config;
 });
