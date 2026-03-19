@@ -352,6 +352,13 @@ project-root/
     - `Template: Category Page`
   - template mới dùng data-binding product/post sẵn có để cắm vào builder nhanh
 
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 16)
+
+- Hoàn thành i18n-ready architecture nền tảng cho frontend (3.12):
+  - thêm `I18nProvider` + dictionary `vi/en`
+  - thêm hook `useI18n()` và lưu locale vào `localStorage` (`moda_locale`)
+  - `AppLayout` dùng key dịch cho menu và có switch ngôn ngữ VI/EN
+
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
 
 - Hoàn thành bảo mật MVP core:
@@ -442,7 +449,7 @@ project-root/
 - [x] Rule-based rendering (điều kiện hiển thị)
 - [x] Custom CSS có kiểm soát quyền
 - [x] Permission chi tiết theo vai trò
-- [ ] i18n-ready architecture
+- [x] i18n-ready architecture
 
 ### 3.13 Security hardening
 
@@ -601,6 +608,11 @@ Sau mỗi lần hoàn thành task:
 - [2026-03-19] Quyết định: Theme builder phase đầu triển khai bằng template presets (product/post/category) qua endpoint templates.
   - Lý do: đạt nhanh use-case theme page mà không cần thêm model DB mới.
   - Ảnh hưởng: giai đoạn sau có thể tách template store riêng nếu cần quản trị sâu hơn.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: i18n phase đầu dùng dictionary nội bộ (`vi/en`) + context provider trên frontend.
+  - Lý do: tạo nền tảng đa ngôn ngữ nhanh, không thêm dependency nặng.
+  - Ảnh hưởng: khi mở rộng ngôn ngữ nhiều cần chuyển sang resource loader/cms translation store.
   - Người xác nhận: Pending user review
 
 ---

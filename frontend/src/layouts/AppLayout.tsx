@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
+import { useI18n } from '../i18n/I18nProvider';
+import { Locale } from '../i18n/messages';
 
 export function AppLayout() {
+  const { locale, setLocale, t } = useI18n();
   const [headerTitle, setHeaderTitle] = useState('Moda');
   const [bannerText, setBannerText] = useState('');
   const [footerText, setFooterText] = useState('');
@@ -27,15 +30,26 @@ export function AppLayout() {
       <header className="topbar">
         <h1>{headerTitle}</h1>
         <nav>
-          <Link to="/">Home</Link>
-          <Link to="/products">Products</Link>
-          <Link to="/cart">Cart</Link>
-          <Link to="/checkout">Checkout</Link>
-          <Link to="/auth">Auth</Link>
-          <Link to="/admin">Admin</Link>
-          <Link to="/admin/settings">Settings</Link>
-          <Link to="/admin/builder">Builder</Link>
-          <Link to="/admin/media">Media</Link>
+          <Link to="/">{t('nav_home')}</Link>
+          <Link to="/products">{t('nav_products')}</Link>
+          <Link to="/cart">{t('nav_cart')}</Link>
+          <Link to="/checkout">{t('nav_checkout')}</Link>
+          <Link to="/auth">{t('nav_auth')}</Link>
+          <Link to="/admin">{t('nav_admin')}</Link>
+          <Link to="/admin/settings">{t('nav_settings')}</Link>
+          <Link to="/admin/builder">{t('nav_builder')}</Link>
+          <Link to="/admin/media">{t('nav_media')}</Link>
+          <label>
+            {t('lang_label')}:{' '}
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value as Locale)}
+              style={{ marginLeft: 4 }}
+            >
+              <option value="vi">VI</option>
+              <option value="en">EN</option>
+            </select>
+          </label>
         </nav>
       </header>
       {bannerText ? <div className="site-banner">{bannerText}</div> : null}
