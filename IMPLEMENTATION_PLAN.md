@@ -392,6 +392,22 @@ project-root/
   - bổ sung `meta description` mặc định trong `index.html`
   - ảnh block builder dùng `loading=\"lazy\"` + `decoding=\"async\"`
 
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 20)
+
+- Hoàn thành cải thiện Core Web Vitals (3.14):
+  - áp dụng route-level code splitting bằng `React.lazy` + `Suspense` cho toàn bộ pages
+  - giảm kích thước JS tải ban đầu cho first load
+
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 21)
+
+- Đóng checklist kỹ thuật của 3.15 (trừ deploy production):
+  - Builder 3 mức: đạt (Level 1 + Level 2 + Level 3 đã hoàn thiện các mục checklist)
+  - Security checklist: đạt (3.13 hoàn tất)
+  - Performance/SEO checklist: đạt (3.14 hoàn tất)
+- Đã test:
+  - `frontend`: `npm run build` ✅ (bundle đã tách chunk theo route)
+  - `backend`: `npm run build` ✅, `npm test -- --runInBand` ✅
+
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
 
 - Hoàn thành bảo mật MVP core:
@@ -497,13 +513,13 @@ project-root/
 - [x] sitemap/robots
 - [x] meta SEO
 - [x] image optimize + lazy load
-- [ ] cải thiện Core Web Vitals
+- [x] cải thiện Core Web Vitals
 
 ### 3.15 DoD Phase 3
 
-- [ ] Builder đủ 3 mức theo spec
-- [ ] Security checklist đạt
-- [ ] Performance/SEO checklist đạt
+- [x] Builder đủ 3 mức theo spec
+- [x] Security checklist đạt
+- [x] Performance/SEO checklist đạt
 - [ ] Ready deploy production
 
 **Trạng thái Phase 3:** 🟡 In Progress  
