@@ -17,67 +17,70 @@ export class AdminService {
     return { users, products, orders, posts };
   }
 
-  listOrders() {
-    return this.prisma.order.findMany({
-      include: {
-        user: { select: { id: true, email: true, fullName: true } },
-        items: true,
-        statusHistory: { orderBy: { createdAt: 'desc' } }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+  async listOrders() {
+    const rows = await this.prisma.order.findMany({ include: { items: true }, orderBy: { createdAt: 'desc' } });
+    return rows.map((row) => ({
+      id: row.id.toString(),
+      orderNo: row.orderNo,
+      status: row.status,
+      totalAmount: Number(row.grandTotal),
+      createdAt: row.createdAt,
+      items: row.items.map((it) => ({ id: it.id.toString(), quantity: it.quantity, unitPrice: Number(it.unitPrice) }))
+    }));
   }
 
   async updateOrderStatus(orderId: string, status: OrderStatus, note?: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({ where: { id: orderId } });
-      const updated = await tx.order.update({ where: { id: orderId }, data: { status } });
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId,
-          fromStatus: order?.status,
-          toStatus: status,
-          note
-        }
-      });
-      return updated;
+    const updated = await this.prisma.order.update({ where: { id: BigInt(orderId) }, data: { status } });
+    await this.prisma.auditLog.create({
+      data: {
+        userId: updated.userId,
+        action: 'ORDER_STATUS_UPDATED',
+        resource: 'order',
+        resourceId: String(updated.id),
+        metadata: JSON.stringify({ note: note ?? null, status })
+      }
     });
+    return updated;
   }
 
   listOrderHistory(orderId: string) {
-    return this.prisma.orderStatusHistory.findMany({
-      where: { orderId },
+    return this.prisma.auditLog.findMany({
+      where: { resource: 'order', resourceId: orderId },
       orderBy: { createdAt: 'desc' }
     });
   }
 
-  listUsersAdvanced() {
-    return this.prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true
-      },
+  async listUsersAdvanced() {
+    const rows = await this.prisma.user.findMany({
+      include: { roles: { include: { role: true } } },
       orderBy: { createdAt: 'desc' }
     });
+
+    return rows.map((row) => ({
+      id: row.id.toString(),
+      email: row.email,
+      fullName: row.fullName,
+      role: (row.roles[0]?.role.code ?? UserRole.CUSTOMER) as UserRole,
+      isActive: row.status === 'ACTIVE',
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt
+    }));
   }
 
   lockUser(userId: string, locked: boolean) {
     return this.prisma.user.update({
-      where: { id: userId },
-      data: { isActive: !locked }
+      where: { id: BigInt(userId) },
+      data: { status: locked ? 'LOCKED' : 'ACTIVE' }
     });
   }
 
-  resetRole(userId: string) {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { role: UserRole.CUSTOMER }
-    });
+  async resetRole(userId: string) {
+    const uid = BigInt(userId);
+    const role = await this.prisma.role.findUnique({ where: { code: UserRole.CUSTOMER } });
+    if (!role) return { ok: false };
+    await this.prisma.userRoleMap.deleteMany({ where: { userId: uid } });
+    await this.prisma.userRoleMap.create({ data: { userId: uid, roleId: role.id } });
+    return { ok: true };
   }
 
   listCategories() {
@@ -89,47 +92,27 @@ export class AdminService {
   }
 
   createCategory(name: string, slug: string) {
-    return this.prisma.postCategory.upsert({
-      where: { slug },
-      update: { name },
-      create: { name, slug }
-    });
+    return this.prisma.postCategory.upsert({ where: { slug }, update: { name }, create: { name, slug } });
   }
 
   createTag(name: string, slug: string) {
-    return this.prisma.postTag.upsert({
-      where: { slug },
-      update: { name },
-      create: { name, slug }
-    });
+    return this.prisma.postTag.upsert({ where: { slug }, update: { name }, create: { name, slug } });
   }
 
   updateCategory(id: string, input: { name?: string; slug?: string }) {
-    return this.prisma.postCategory.update({
-      where: { id },
-      data: {
-        ...(input.name ? { name: input.name } : {}),
-        ...(input.slug ? { slug: input.slug } : {})
-      }
-    });
+    return this.prisma.postCategory.update({ where: { id: BigInt(id) }, data: input });
   }
 
   deleteCategory(id: string) {
-    return this.prisma.postCategory.delete({ where: { id } });
+    return this.prisma.postCategory.delete({ where: { id: BigInt(id) } });
   }
 
   updateTag(id: string, input: { name?: string; slug?: string }) {
-    return this.prisma.postTag.update({
-      where: { id },
-      data: {
-        ...(input.name ? { name: input.name } : {}),
-        ...(input.slug ? { slug: input.slug } : {})
-      }
-    });
+    return this.prisma.postTag.update({ where: { id: BigInt(id) }, data: input });
   }
 
   deleteTag(id: string) {
-    return this.prisma.postTag.delete({ where: { id } });
+    return this.prisma.postTag.delete({ where: { id: BigInt(id) } });
   }
 
   createPostAdvanced(input: {
@@ -140,141 +123,69 @@ export class AdminService {
     status?: string;
     seoTitle?: string;
     seoDescription?: string;
-    categories?: string[];
-    tags?: string[];
   }) {
-    return this.prisma.$transaction(async (tx) => {
-      const post = await tx.post.upsert({
-        where: { slug: input.slug },
-        update: {
-          title: input.title,
-          excerpt: input.excerpt,
-          content: input.content,
-          status: input.status ?? 'DRAFT',
-          seoTitle: input.seoTitle,
-          seoDescription: input.seoDescription
-        },
-        create: {
-          title: input.title,
-          slug: input.slug,
-          excerpt: input.excerpt,
-          content: input.content,
-          status: input.status ?? 'DRAFT',
-          seoTitle: input.seoTitle,
-          seoDescription: input.seoDescription
-        }
-      });
-
-      await tx.postCategoryMap.deleteMany({ where: { postId: post.id } });
-      await tx.postTagMap.deleteMany({ where: { postId: post.id } });
-
-      for (const categorySlug of input.categories ?? []) {
-        const category = await tx.postCategory.upsert({
-          where: { slug: categorySlug },
-          update: {},
-          create: { slug: categorySlug, name: categorySlug }
-        });
-        await tx.postCategoryMap.create({ data: { postId: post.id, categoryId: category.id } });
+    return this.prisma.post.upsert({
+      where: { slug: input.slug },
+      update: {
+        title: input.title,
+        excerpt: input.excerpt,
+        content: input.content,
+        status: (input.status as any) ?? 'DRAFT',
+        seoTitle: input.seoTitle,
+        seoDescription: input.seoDescription
+      },
+      create: {
+        title: input.title,
+        slug: input.slug,
+        excerpt: input.excerpt,
+        content: input.content,
+        status: (input.status as any) ?? 'DRAFT',
+        seoTitle: input.seoTitle,
+        seoDescription: input.seoDescription
       }
-
-      for (const tagSlug of input.tags ?? []) {
-        const tag = await tx.postTag.upsert({
-          where: { slug: tagSlug },
-          update: {},
-          create: { slug: tagSlug, name: tagSlug }
-        });
-        await tx.postTagMap.create({ data: { postId: post.id, tagId: tag.id } });
-      }
-
-      return post;
     });
   }
 
   listPostsAdvanced() {
-    return this.prisma.post.findMany({
-      include: {
-        categories: { include: { category: true } },
-        tags: { include: { tag: true } }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    return this.prisma.post.findMany({ orderBy: { createdAt: 'desc' } });
   }
 
   getPostAdvanced(id: string) {
-    return this.prisma.post.findUnique({
-      where: { id },
-      include: {
-        categories: { include: { category: true } },
-        tags: { include: { tag: true } }
-      }
-    });
+    return this.prisma.post.findUnique({ where: { id: BigInt(id) } });
   }
 
-  updatePostAdvanced(id: string, input: {
-    title?: string;
-    slug?: string;
-    excerpt?: string;
-    content?: string;
-    status?: string;
-    seoTitle?: string;
-    seoDescription?: string;
-    categories?: string[];
-    tags?: string[];
-  }) {
-    return this.prisma.$transaction(async (tx) => {
-      const post = await tx.post.update({
-        where: { id },
-        data: {
-          ...(input.title ? { title: input.title } : {}),
-          ...(input.slug ? { slug: input.slug } : {}),
-          ...(input.excerpt !== undefined ? { excerpt: input.excerpt } : {}),
-          ...(input.content ? { content: input.content } : {}),
-          ...(input.status ? { status: input.status } : {}),
-          ...(input.seoTitle !== undefined ? { seoTitle: input.seoTitle } : {}),
-          ...(input.seoDescription !== undefined ? { seoDescription: input.seoDescription } : {})
-        }
-      });
-
-      if (input.categories) {
-        await tx.postCategoryMap.deleteMany({ where: { postId: post.id } });
-        for (const categorySlug of input.categories) {
-          const category = await tx.postCategory.upsert({
-            where: { slug: categorySlug },
-            update: {},
-            create: { slug: categorySlug, name: categorySlug }
-          });
-          await tx.postCategoryMap.create({ data: { postId: post.id, categoryId: category.id } });
-        }
-      }
-
-      if (input.tags) {
-        await tx.postTagMap.deleteMany({ where: { postId: post.id } });
-        for (const tagSlug of input.tags) {
-          const tag = await tx.postTag.upsert({
-            where: { slug: tagSlug },
-            update: {},
-            create: { slug: tagSlug, name: tagSlug }
-          });
-          await tx.postTagMap.create({ data: { postId: post.id, tagId: tag.id } });
-        }
-      }
-
-      return post;
-    });
+  updatePostAdvanced(
+    id: string,
+    input: {
+      title?: string;
+      slug?: string;
+      excerpt?: string;
+      content?: string;
+      status?: string;
+      seoTitle?: string;
+      seoDescription?: string;
+    }
+  ) {
+    return this.prisma.post.update({ where: { id: BigInt(id) }, data: { ...(input as any) } });
   }
 
   deletePostAdvanced(id: string) {
-    return this.prisma.post.delete({ where: { id } });
+    return this.prisma.post.delete({ where: { id: BigInt(id) } });
   }
 
   logAccess(input: { userId?: string; ipAddress?: string; device?: string; route: string; method: string }) {
-    return this.prisma.accessLog.create({ data: input });
+    return this.prisma.accessLog.create({
+      data: {
+        userId: input.userId ? BigInt(input.userId) : null,
+        ipAddress: input.ipAddress,
+        device: input.device,
+        route: `${input.method} ${input.route}`,
+        method: true
+      }
+    });
   }
 
   listAccessLogs() {
-    return this.prisma.accessLog.findMany({
-      include: { user: { select: { id: true, email: true, fullName: true } } },
-      orderBy: { createdAt: 'desc' }
-    });
+    return this.prisma.accessLog.findMany({ orderBy: { createdAt: 'desc' } });
   }
 }

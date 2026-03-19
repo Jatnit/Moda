@@ -26,12 +26,22 @@ export function CheckoutPage() {
   };
 
   return (
-    <section>
-      <h2>Checkout</h2>
-      <p>Items: {items.length}</p>
-      <button type="button" onClick={checkout}>
-        Create Order + Init SEPAY
-      </button>
+    <section className="page-section">
+      <div className="page-head">
+        <h2>Checkout</h2>
+        <p>Secure payment flow with SEPAY initialization.</p>
+      </div>
+      <div className="line-card">
+        <p>Items: {items.length}</p>
+        <button type="button" onClick={checkout}>
+          Create Order + Init SEPAY
+        </button>
+      </div>
+      <div className="feature-strip">
+        <span>Thanh toán bảo mật</span>
+        <span>Xác nhận đơn tự động</span>
+        <span>Hỗ trợ đổi size sau mua</span>
+      </div>
       <pre>{result}</pre>
     </section>
   );

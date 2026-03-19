@@ -21,53 +21,64 @@ export class AuthService {
 
   async register(input: RegisterDto) {
     const passwordHash = await argon2.hash(input.password, { type: argon2.argon2id });
+    const roleCode = UserRole.CUSTOMER;
 
     const user = await this.prisma.user.create({
       data: {
         email: input.email.toLowerCase(),
         passwordHash,
         fullName: input.fullName,
-        role: input.role ?? UserRole.CUSTOMER
+        status: 'ACTIVE'
       }
     });
 
-    return this.issueTokens(user.id, user.role, user.email);
+    const role = await this.prisma.role.findUnique({ where: { code: roleCode } });
+    if (role) {
+      await this.prisma.userRoleMap.create({
+        data: {
+          userId: user.id,
+          roleId: role.id
+        }
+      });
+    }
+
+    return this.issueTokens(user.id, roleCode, user.email, undefined, undefined);
   }
 
   async login(input: LoginDto, ipAddress?: string) {
     const attemptKey = `${input.email.toLowerCase()}|${ipAddress ?? 'unknown'}`;
     this.assertNotBlocked(attemptKey);
 
-    const user = await this.prisma.user.findUnique({
-      where: { email: input.email.toLowerCase() }
-    });
+    const user = await this.prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
 
     if (!user || !(await argon2.verify(user.passwordHash, input.password))) {
       this.recordFailure(attemptKey);
       await this.writeAudit({
         action: 'AUTH_LOGIN_FAILED',
         resource: 'auth',
-        metadata: {
-          email: input.email.toLowerCase(),
-          ipAddress: ipAddress ?? null
-        }
+        metadata: { email: input.email.toLowerCase(), ipAddress: ipAddress ?? null }
       });
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    const roleMap = await this.prisma.userRoleMap.findFirst({
+      where: { userId: user.id },
+      include: { role: true },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    const role = (roleMap?.role.code ?? UserRole.CUSTOMER) as UserRole;
 
     this.resetFailures(attemptKey);
     await this.writeAudit({
       userId: user.id,
       action: 'AUTH_LOGIN_SUCCESS',
       resource: 'auth',
-      resourceId: user.id,
-      metadata: {
-        email: user.email,
-        ipAddress: ipAddress ?? null
-      }
+      resourceId: String(user.id),
+      metadata: { email: user.email, ipAddress: ipAddress ?? null }
     });
 
-    return this.issueTokens(user.id, user.role, user.email);
+    return this.issueTokens(user.id, role, user.email, ipAddress, undefined);
   }
 
   async refreshToken(refreshToken: string) {
@@ -76,38 +87,48 @@ export class AuthService {
         secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET')
       });
 
-      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-      if (!user?.refreshTokenHash) {
+      const userId = BigInt(payload.sub);
+      const existing = await this.prisma.refreshToken.findFirst({
+        where: {
+          userId,
+          revokedAt: null,
+          expiresAt: { gt: new Date() }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (!existing) {
         throw new UnauthorizedException('Refresh token revoked');
       }
 
-      const isValid = await argon2.verify(user.refreshTokenHash, refreshToken);
+      const isValid = await argon2.verify(existing.tokenHash, refreshToken);
       if (!isValid) {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      return this.issueTokens(payload.sub, payload.role, payload.email);
+      return this.issueTokens(userId, payload.role as UserRole, payload.email, undefined, undefined);
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
   async logout(userId: string) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshTokenHash: null }
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: BigInt(userId), revokedAt: null },
+      data: { revokedAt: new Date() }
     });
-    await this.writeAudit({
-      userId,
-      action: 'AUTH_LOGOUT',
-      resource: 'auth',
-      resourceId: userId
-    });
+    await this.writeAudit({ userId: BigInt(userId), action: 'AUTH_LOGOUT', resource: 'auth', resourceId: userId });
     return { ok: true };
   }
 
-  private async issueTokens(userId: string, role: UserRole, email: string) {
-    const payload = { sub: userId, role, email };
+  private async issueTokens(
+    userId: bigint,
+    role: UserRole,
+    email: string,
+    ipAddress?: string,
+    userAgent?: string
+  ) {
+    const payload = { sub: userId.toString(), role, email };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -121,12 +142,17 @@ export class AuthService {
     ]);
 
     const refreshTokenHash = await argon2.hash(refreshToken, { type: argon2.argon2id });
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { refreshTokenHash }
+    await this.prisma.refreshToken.create({
+      data: {
+        userId,
+        tokenHash: refreshTokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null
+      }
     });
 
-    return { accessToken, refreshToken, user: { id: userId, email, role } };
+    return { accessToken, refreshToken, user: { id: userId.toString(), email, role } };
   }
 
   private assertNotBlocked(key: string) {
@@ -157,21 +183,19 @@ export class AuthService {
   }
 
   private async writeAudit(input: {
-    userId?: string;
+    userId?: bigint;
     action: string;
     resource: string;
     resourceId?: string;
     metadata?: unknown;
   }) {
-    const create = (this.prisma as any)?.auditLog?.create;
-    if (typeof create !== 'function') return;
-    await create({
+    await this.prisma.auditLog.create({
       data: {
         userId: input.userId,
         action: input.action,
         resource: input.resource,
-        resourceId: input.resourceId,
-        metadata: input.metadata as any
+        resourceId: input.resourceId ?? '-',
+        metadata: input.metadata ? JSON.stringify(input.metadata) : null
       }
     });
   }

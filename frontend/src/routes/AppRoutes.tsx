@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '../layouts/AppLayout';
+import { ProtectedRoute } from './ProtectedRoute';
 
 const HomePage = lazy(() => import('../pages/shop/HomePage').then((mod) => ({ default: mod.HomePage })));
 const ProductListPage = lazy(() =>
@@ -24,6 +25,9 @@ const AdminBuilderPage = lazy(() =>
 const MediaManagerPage = lazy(() =>
   import('../pages/admin/MediaManagerPage').then((mod) => ({ default: mod.MediaManagerPage }))
 );
+const UserDashboardPage = lazy(() =>
+  import('../pages/UserDashboardPage').then((mod) => ({ default: mod.UserDashboardPage }))
+);
 
 export function AppRoutes() {
   return (
@@ -34,12 +38,55 @@ export function AppRoutes() {
           <Route path="/products" element={<ProductListPage />} />
           <Route path="/products/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/admin" element={<AdminDashboardPage />} />
-          <Route path="/admin/settings" element={<AdminSiteSettingsPage />} />
-          <Route path="/admin/builder" element={<AdminBuilderPage />} />
-          <Route path="/admin/media" element={<MediaManagerPage />} />
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <UserDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'EDITOR']}>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN']}>
+                <AdminSiteSettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/builder"
+            element={
+              <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'EDITOR']}>
+                <AdminBuilderPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/media"
+            element={
+              <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN', 'EDITOR']}>
+                <MediaManagerPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -1,5 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminService } from './admin.service';
 import { CreateTermDto } from './dto/create-term.dto';
 import { LockUserDto } from './dto/lock-user.dto';
@@ -10,6 +14,8 @@ import { UpdateTermDto } from './dto/update-term.dto';
 import { UpsertPostAdvancedDto } from './dto/upsert-post-advanced.dto';
 
 @ApiTags('admin')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}

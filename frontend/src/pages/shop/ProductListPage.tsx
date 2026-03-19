@@ -25,15 +25,39 @@ export function ProductListPage() {
   }, []);
 
   return (
-    <section>
-      <h2>Products</h2>
-      <ul>
+    <section className="page-section">
+      <div className="page-head">
+        <h2>Products</h2>
+        <p>Discover curated essentials for everyday style.</p>
+      </div>
+
+      <div className="chip-row">
+        <span className="chip">New Arrival</span>
+        <span className="chip">Office Wear</span>
+        <span className="chip">Weekend Edit</span>
+        <span className="chip">Party Night</span>
+      </div>
+
+      <ul className="list-grid">
         {products.map((product) => (
-          <li key={product.id}>
-            <Link to={`/products/${product.id}`}>{product.name}</Link> - ${product.price}
+          <li key={product.id} className="list-card">
+            <Link className="list-card-title" to={`/products/${product.id}`}>
+              {product.name}
+            </Link>
+            <p>${product.price}</p>
           </li>
         ))}
       </ul>
+
+      <article className="line-card">
+        <div>
+          <strong>Need a quick size recommendation?</strong>
+          <p className="muted">Chat with our stylist team for personalized fit suggestions.</p>
+        </div>
+        <a className="cta-link" href="/auth">
+          Get Style Help
+        </a>
+      </article>
     </section>
   );
 }

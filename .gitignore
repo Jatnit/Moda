@@ -9,3 +9,4 @@ dist
 frontend/dist
 backend/dist
 backend/.nestjs
+IMPLEMENTATION_PLAN.md

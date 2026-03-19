@@ -221,20 +221,20 @@ export const defaultBuilderSchema: BuilderSchema = {
         {
           id: 'hero-1',
           type: 'hero',
-          props: { title: 'Welcome to Moda', subtitle: 'Top pick: {{products.0.name}}' },
+          props: { title: 'Moda Atelier', subtitle: 'New season favorite: {{products.0.name}}' },
           style: { padding: 16 }
         },
         {
           id: 'column-1',
           type: 'column',
           children: [
-            { id: 'text-1', type: 'text', props: { content: 'Edit this page from Admin Builder Pro.' } },
-            { id: 'button-1', type: 'button', props: { label: 'Shop Now', href: '/products' } }
+            { id: 'text-1', type: 'text', props: { content: 'Tailored essentials for modern women and men.' } },
+            { id: 'button-1', type: 'button', props: { label: 'Explore Collection', href: '/products' } }
           ]
         }
       ]
     },
-    { id: 'grid-1', type: 'product-grid', props: { title: 'Hot Products', limit: 6 } }
+    { id: 'grid-1', type: 'product-grid', props: { title: 'Signature Picks', limit: 6 } }
   ]
 };
 import type { CSSProperties, JSX } from 'react';

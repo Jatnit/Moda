@@ -1,6 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
-import { UserRole } from '@prisma/client';
+import { IsEmail, IsString, MinLength } from 'class-validator';
 import { sanitizeText } from '../../../common/utils/sanitize.util';
 
 export class RegisterDto {
@@ -16,8 +15,4 @@ export class RegisterDto {
   @Transform(({ value }) => sanitizeText(String(value ?? '')))
   @IsString()
   fullName!: string;
-
-  @IsOptional()
-  @IsEnum(UserRole)
-  role?: UserRole;
 }

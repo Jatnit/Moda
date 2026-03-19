@@ -40,8 +40,11 @@ export function AdminDashboardPage() {
   };
 
   return (
-    <section>
-      <h2>Admin Dashboard</h2>
+    <section className="page-section">
+      <div className="page-head">
+        <h2>Admin Dashboard</h2>
+        <p>Quick overview of business activity and content status.</p>
+      </div>
       {data ? (
         <div className="cards">
           <article>
@@ -64,7 +67,7 @@ export function AdminDashboardPage() {
       ) : (
         <p>Unable to load dashboard stats.</p>
       )}
-      <section className="stack">
+      <section className="stack form-panel">
         <h3>Quick Create Product</h3>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
         <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="Slug" />

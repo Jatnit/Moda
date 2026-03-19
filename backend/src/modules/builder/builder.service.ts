@@ -1,15 +1,23 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PageStatus, Prisma } from '@prisma/client';
+import { PageStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { sanitizeDeep } from '../../common/utils/sanitize.util';
+
+function parseSchema(value: string) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return { blocks: [] };
+  }
+}
 
 @Injectable()
 export class BuilderService {
   constructor(private readonly prisma: PrismaService) {}
 
-  listPages() {
-    return this.prisma.page.findMany({
-      orderBy: { updatedAt: 'desc' },
+  async listPages() {
+    const pages = await this.prisma.page.findMany({
+      orderBy: { createdAt: 'desc' },
       include: {
         versions: {
           orderBy: { createdAt: 'desc' },
@@ -17,65 +25,72 @@ export class BuilderService {
         }
       }
     });
+
+    return pages.map((page) => ({
+      id: page.id.toString(),
+      slug: page.slug,
+      status: page.status,
+      version: page.currentVersionNo,
+      latest: page.versions[0]
+        ? {
+            id: page.versions[0].id.toString(),
+            versionNo: page.versions[0].versionNo,
+            jsonSchema: parseSchema(page.versions[0].jsonSchema),
+            createdAt: page.versions[0].createdAt
+          }
+        : null
+    }));
   }
 
   async saveDraft(input: { slug: string; jsonSchema: unknown; createdBy?: string }) {
     const cleanedSchema = sanitizeDeep(input.jsonSchema);
     const page = await this.prisma.page.upsert({
       where: { slug: input.slug },
-      update: { status: PageStatus.DRAFT, version: { increment: 1 } },
-      create: { slug: input.slug, status: PageStatus.DRAFT }
+      update: { status: PageStatus.DRAFT, currentVersionNo: { increment: 1 } },
+      create: { slug: input.slug, name: input.slug, status: PageStatus.DRAFT }
     });
 
     const version = await this.prisma.pageVersion.create({
       data: {
         pageId: page.id,
-        jsonSchema: cleanedSchema as Prisma.InputJsonValue,
-        createdBy: input.createdBy
+        versionNo: page.currentVersionNo,
+        jsonSchema: JSON.stringify(cleanedSchema),
+        isPublished: false
       }
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: input.createdBy,
-        action: 'BUILDER_SAVE_DRAFT',
-        resource: 'builder_page',
-        resourceId: page.id,
-        metadata: {
-          slug: input.slug,
-          versionId: version.id
-        }
+    return {
+      page: {
+        id: page.id.toString(),
+        slug: page.slug,
+        status: page.status,
+        version: page.currentVersionNo
+      },
+      version: {
+        id: version.id.toString(),
+        versionNo: version.versionNo,
+        jsonSchema: parseSchema(version.jsonSchema)
       }
-    });
-
-    return { page, version };
+    };
   }
 
-  async publish(pageId: string, actorId?: string) {
-    const page = await this.prisma.page.findUnique({ where: { id: pageId } });
-    if (!page) {
-      throw new NotFoundException('Page not found');
-    }
-
+  async publish(pageId: string) {
     const updated = await this.prisma.page.update({
-      where: { id: pageId },
+      where: { id: BigInt(pageId) },
       data: { status: PageStatus.PUBLISHED }
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: actorId,
-        action: 'BUILDER_PUBLISH',
-        resource: 'builder_page',
-        resourceId: pageId
-      }
-    });
-    return updated;
+    return {
+      id: updated.id.toString(),
+      slug: updated.slug,
+      status: updated.status,
+      version: updated.currentVersionNo
+    };
   }
 
   async preview(pageId: string) {
     const latest = await this.prisma.pageVersion.findFirst({
-      where: { pageId },
+      where: { pageId: BigInt(pageId) },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -83,7 +98,13 @@ export class BuilderService {
       throw new NotFoundException('No page version found');
     }
 
-    return latest;
+    return {
+      id: latest.id.toString(),
+      pageId: latest.pageId.toString(),
+      versionNo: latest.versionNo,
+      jsonSchema: parseSchema(latest.jsonSchema),
+      createdAt: latest.createdAt
+    };
   }
 
   async latestBySlug(slug: string) {
@@ -95,7 +116,17 @@ export class BuilderService {
       where: { pageId: page.id },
       orderBy: { createdAt: 'desc' }
     });
-    return { page, latest };
+    return {
+      page: { id: page.id.toString(), slug: page.slug, status: page.status, version: page.currentVersionNo },
+      latest: latest
+        ? {
+            id: latest.id.toString(),
+            versionNo: latest.versionNo,
+            jsonSchema: parseSchema(latest.jsonSchema),
+            createdAt: latest.createdAt
+          }
+        : null
+    };
   }
 
   async publishedBySlug(slug: string) {
@@ -109,61 +140,70 @@ export class BuilderService {
       where: { pageId: page.id },
       orderBy: { createdAt: 'desc' }
     });
-    return { page, latest };
+    return {
+      page: { id: page.id.toString(), slug: page.slug, status: page.status, version: page.currentVersionNo },
+      latest: latest
+        ? {
+            id: latest.id.toString(),
+            versionNo: latest.versionNo,
+            jsonSchema: parseSchema(latest.jsonSchema),
+            createdAt: latest.createdAt
+          }
+        : null
+    };
   }
 
-  listVersions(pageId: string) {
-    return this.prisma.pageVersion.findMany({
-      where: { pageId },
+  async listVersions(pageId: string) {
+    const versions = await this.prisma.pageVersion.findMany({
+      where: { pageId: BigInt(pageId) },
       orderBy: { createdAt: 'desc' }
     });
+
+    return versions.map((item) => ({
+      id: item.id.toString(),
+      versionNo: item.versionNo,
+      createdAt: item.createdAt
+    }));
   }
 
-  async rollback(pageId: string, versionId: string, actorId?: string) {
+  async rollback(pageId: string, versionId: string) {
     const version = await this.prisma.pageVersion.findFirst({
-      where: { id: versionId, pageId }
+      where: { id: BigInt(versionId), pageId: BigInt(pageId) }
     });
     if (!version) {
       throw new NotFoundException('Version not found');
     }
 
     const page = await this.prisma.page.update({
-      where: { id: pageId },
-      data: { version: { increment: 1 }, status: PageStatus.DRAFT }
+      where: { id: BigInt(pageId) },
+      data: { currentVersionNo: { increment: 1 }, status: PageStatus.DRAFT }
     });
 
     const rollbackVersion = await this.prisma.pageVersion.create({
       data: {
-        pageId,
-        jsonSchema: version.jsonSchema as Prisma.InputJsonValue,
-        createdBy: actorId ?? version.createdBy
+        pageId: page.id,
+        versionNo: page.currentVersionNo,
+        jsonSchema: version.jsonSchema,
+        isPublished: false
       }
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: actorId,
-        action: 'BUILDER_ROLLBACK',
-        resource: 'builder_page',
-        resourceId: pageId,
-        metadata: {
-          fromVersionId: versionId,
-          rollbackVersionId: rollbackVersion.id
-        }
+    return {
+      page: { id: page.id.toString(), slug: page.slug, status: page.status, version: page.currentVersionNo },
+      rollbackVersion: {
+        id: rollbackVersion.id.toString(),
+        versionNo: rollbackVersion.versionNo,
+        createdAt: rollbackVersion.createdAt
       }
-    });
-
-    return { page, rollbackVersion };
+    };
   }
 
   async listReusableBlocks() {
-    const setting = await this.prisma.setting.findUnique({
-      where: { key: 'builder_reusable_blocks' }
-    });
-    return (setting?.value ?? []) as unknown[];
+    const setting = await this.prisma.setting.findUnique({ where: { key: 'builder_reusable_blocks' } });
+    return parseSchema(setting?.value ?? '[]');
   }
 
-  async saveReusableBlock(input: { name: string; block: unknown; actorId?: string }) {
+  async saveReusableBlock(input: { name: string; block: unknown }) {
     const list = (await this.listReusableBlocks()) as Array<{ name: string; block: unknown }>;
     const cleanedBlock = sanitizeDeep(input.block);
     const existingIndex = list.findIndex((item) => item.name === input.name);
@@ -175,17 +215,8 @@ export class BuilderService {
 
     await this.prisma.setting.upsert({
       where: { key: 'builder_reusable_blocks' },
-      update: { value: list as Prisma.InputJsonValue },
-      create: { key: 'builder_reusable_blocks', value: list as Prisma.InputJsonValue }
-    });
-
-    await this.prisma.auditLog.create({
-      data: {
-        userId: input.actorId,
-        action: 'BUILDER_SAVE_REUSABLE',
-        resource: 'builder_reusable_block',
-        metadata: { name: input.name }
-      }
+      update: { value: JSON.stringify(list) },
+      create: { key: 'builder_reusable_blocks', value: JSON.stringify(list) }
     });
 
     return list;
@@ -202,58 +233,11 @@ export class BuilderService {
       },
       {
         name: 'Feature Text',
-        blocks: [
-          { id: `text-${Date.now()}`, type: 'text', props: { content: 'Tell users your value proposition.' } }
-        ]
+        blocks: [{ id: `text-${Date.now()}`, type: 'text', props: { content: 'Tell users your value proposition.' } }]
       },
       {
         name: 'Product Showcase',
         blocks: [{ id: `grid-${Date.now()}`, type: 'product-grid', props: { title: 'Featured', limit: 6 } }]
-      },
-      {
-        name: 'Template: Product Page',
-        blocks: [
-          {
-            id: `hero-product-${Date.now()}`,
-            type: 'hero',
-            props: { title: '{{products.0.name}}', subtitle: 'Price: ${{products.0.price}}' }
-          },
-          {
-            id: `product-grid-${Date.now()}`,
-            type: 'product-grid',
-            props: { title: 'Related Products', source: 'products', limit: 4 }
-          }
-        ]
-      },
-      {
-        name: 'Template: Post Page',
-        blocks: [
-          {
-            id: `hero-post-${Date.now()}`,
-            type: 'hero',
-            props: { title: '{{posts.0.title}}', subtitle: '{{posts.0.excerpt}}' }
-          },
-          {
-            id: `post-grid-${Date.now()}`,
-            type: 'product-grid',
-            props: { title: 'Latest Posts', source: 'posts', limit: 4 }
-          }
-        ]
-      },
-      {
-        name: 'Template: Category Page',
-        blocks: [
-          {
-            id: `category-text-${Date.now()}`,
-            type: 'text',
-            props: { content: 'Category landing powered by builder theme template.' }
-          },
-          {
-            id: `category-products-${Date.now()}`,
-            type: 'product-grid',
-            props: { title: 'Category Products', source: 'products', limit: 8 }
-          }
-        ]
       }
     ];
   }

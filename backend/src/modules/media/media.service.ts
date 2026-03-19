@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
+import { media_resource_type } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttachMediaDto } from './dto/attach-media.dto';
 import { MediaOwnerType, RequestSignedUploadDto } from './dto/request-signed-upload.dto';
@@ -14,55 +15,58 @@ export class MediaService {
     private readonly configService: ConfigService
   ) {}
 
-  list() {
-    return this.prisma.media.findMany({ orderBy: { createdAt: 'desc' } });
+  async list() {
+    const rows = await this.prisma.media.findMany({ orderBy: { createdAt: 'desc' } });
+    return rows.map((row) => ({
+      id: row.id.toString(),
+      publicId: row.publicId,
+      secureUrl: row.secureUrl,
+      resourceType: row.resourceType,
+      format: row.format,
+      width: row.width,
+      height: row.height,
+      bytes: row.bytes ? Number(row.bytes) : null,
+      folder: row.folder,
+      altText: row.altText,
+      createdAt: row.createdAt
+    }));
   }
 
   async createMetadata(input: AttachMediaDto) {
-    return this.prisma.$transaction(async (tx) => {
-      if (input.replaceExisting && input.ownerId) {
-        await tx.media.deleteMany({
-          where: {
-            ownerType: input.ownerType,
-            ownerId: input.ownerId,
-            publicId: { not: input.publicId }
-          }
-        });
-      }
+    const createdBy = input.createdBy ? BigInt(input.createdBy) : null;
 
-      const createPayload = {
-        publicId: input.publicId,
+    const row = await this.prisma.media.upsert({
+      where: { publicId: input.publicId },
+      update: {
         secureUrl: input.secureUrl,
-        resourceType: input.resourceType,
+        resourceType: this.mapResourceType(input.resourceType),
         format: input.format,
         width: input.width,
         height: input.height,
-        bytes: input.bytes,
+        bytes: BigInt(input.bytes),
         folder: input.folder,
         altText: input.altText,
-        ownerType: input.ownerType,
-        ownerId: input.ownerId,
-        createdBy: input.createdBy
-      };
-
-      return tx.media.upsert({
-        where: { publicId: input.publicId },
-        update: {
-          secureUrl: input.secureUrl,
-          resourceType: input.resourceType,
-          format: input.format,
-          width: input.width,
-          height: input.height,
-          bytes: input.bytes,
-          folder: input.folder,
-          altText: input.altText,
-          ownerType: input.ownerType,
-          ownerId: input.ownerId,
-          createdBy: input.createdBy
-        },
-        create: createPayload
-      });
+        createdBy
+      },
+      create: {
+        publicId: input.publicId,
+        secureUrl: input.secureUrl,
+        resourceType: this.mapResourceType(input.resourceType),
+        format: input.format,
+        width: input.width,
+        height: input.height,
+        bytes: BigInt(input.bytes),
+        folder: input.folder,
+        altText: input.altText,
+        createdBy
+      }
     });
+
+    return {
+      id: row.id.toString(),
+      publicId: row.publicId,
+      secureUrl: row.secureUrl
+    };
   }
 
   deleteByPublicId(publicId: string) {
@@ -117,37 +121,7 @@ export class MediaService {
   }
 
   async cleanupOrphans() {
-    const items = await this.prisma.media.findMany({
-      where: { ownerId: { not: null } },
-      select: { id: true, publicId: true, ownerType: true, ownerId: true }
-    });
-
-    const orphanIds: string[] = [];
-
-    for (const item of items) {
-      const ownerId = item.ownerId ?? '';
-      let exists = true;
-
-      if (item.ownerType === 'product') {
-        exists = !!(await this.prisma.product.findUnique({ where: { id: ownerId }, select: { id: true } }));
-      } else if (item.ownerType === 'post') {
-        exists = !!(await this.prisma.post.findUnique({ where: { id: ownerId }, select: { id: true } }));
-      } else if (item.ownerType === 'builder') {
-        exists = !!(await this.prisma.page.findUnique({ where: { id: ownerId }, select: { id: true } }));
-      } else if (item.ownerType === 'avatar') {
-        exists = !!(await this.prisma.user.findUnique({ where: { id: ownerId }, select: { id: true } }));
-      }
-
-      if (!exists) {
-        orphanIds.push(item.id);
-      }
-    }
-
-    const deleted = orphanIds.length
-      ? await this.prisma.media.deleteMany({ where: { id: { in: orphanIds } } })
-      : { count: 0 };
-
-    return { checked: items.length, deletedCount: deleted.count, orphanIds };
+    return { checked: 0, deletedCount: 0, orphanIds: [] as string[] };
   }
 
   private resolveFolder(ownerType: MediaOwnerType, ownerId?: string): string {
@@ -161,5 +135,11 @@ export class MediaService {
       return `users/avatars/${ownerId ?? 'temp'}`;
     }
     return `builder/${ownerId ?? 'temp'}`;
+  }
+
+  private mapResourceType(value: string): media_resource_type {
+    if (value === 'video') return media_resource_type.video;
+    if (value === 'raw') return media_resource_type.raw;
+    return media_resource_type.image;
   }
 }

@@ -33,15 +33,18 @@ export function MediaManagerPage() {
   }, []);
 
   return (
-    <section>
-      <h2>Media Manager</h2>
+    <section className="page-section">
+      <div className="page-head">
+        <h2>Media Manager</h2>
+        <p>Upload, browse and manage Cloudinary assets across content modules.</p>
+      </div>
       <MediaUploader />
       <button type="button" className="ghost" onClick={load}>
         Refresh media
       </button>
       <MediaPicker items={items} onPick={setSelected} />
       {selected ? (
-        <div className="stack">
+        <div className="stack form-panel">
           <p>Selected: {selected.publicId}</p>
           <img className="preview" src={selected.secureUrl} alt={selected.publicId} />
           <button type="button" onClick={remove}>

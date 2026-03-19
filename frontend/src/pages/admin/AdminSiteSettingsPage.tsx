@@ -46,18 +46,19 @@ export function AdminSiteSettingsPage() {
   }, []);
 
   return (
-    <section className="stack">
-      <h2>Site Settings</h2>
-      <input value={headerTitle} onChange={(e) => setHeaderTitle(e.target.value)} placeholder="Header title" />
-      <input value={bannerText} onChange={(e) => setBannerText(e.target.value)} placeholder="Banner text" />
-      <input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Footer text" />
-      <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Contact email" />
-      <input value={themeColor} onChange={(e) => setThemeColor(e.target.value)} placeholder="Theme color" />
-      <button type="button" onClick={save}>
-        Save Settings
-      </button>
-      <p>{message}</p>
+    <section className="page-section">
+      <div className="stack form-panel">
+        <h2>Site Settings</h2>
+        <input value={headerTitle} onChange={(e) => setHeaderTitle(e.target.value)} placeholder="Header title" />
+        <input value={bannerText} onChange={(e) => setBannerText(e.target.value)} placeholder="Banner text" />
+        <input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Footer text" />
+        <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Contact email" />
+        <input value={themeColor} onChange={(e) => setThemeColor(e.target.value)} placeholder="Theme color" />
+        <button type="button" onClick={save}>
+          Save Settings
+        </button>
+        <p>{message}</p>
+      </div>
     </section>
   );
 }
-

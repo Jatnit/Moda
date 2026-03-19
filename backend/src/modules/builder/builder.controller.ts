@@ -50,7 +50,7 @@ export class BuilderController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   publish(@Req() req: Request, @Param('id') id: string) {
-    return this.builderService.publish(id, String((req as any).user?.sub ?? ''));
+    return this.builderService.publish(id);
   }
 
   @Get('pages/:id/preview')
@@ -74,7 +74,7 @@ export class BuilderController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   rollback(@Req() req: Request, @Param('id') id: string, @Body() body: { versionId: string }) {
-    return this.builderService.rollback(id, body.versionId, String((req as any).user?.sub ?? ''));
+    return this.builderService.rollback(id, body.versionId);
   }
 
   @Get('templates')
@@ -98,9 +98,6 @@ export class BuilderController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   saveReusableBlock(@Req() req: Request, @Body() body: { name: string; block: unknown }) {
-    return this.builderService.saveReusableBlock({
-      ...body,
-      actorId: String((req as any).user?.sub ?? '')
-    });
+    return this.builderService.saveReusableBlock(body);
   }
 }

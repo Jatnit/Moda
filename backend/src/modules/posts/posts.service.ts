@@ -1,19 +1,44 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
+function serializePost(row: any) {
+  return {
+    id: row.id.toString(),
+    title: row.title,
+    slug: row.slug,
+    excerpt: row.excerpt ?? undefined,
+    content: row.content ?? undefined,
+    status: row.status,
+    createdAt: row.createdAt
+  };
+}
+
 @Injectable()
 export class PostsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list() {
-    return this.prisma.post.findMany({ orderBy: { createdAt: 'desc' } });
+  async list() {
+    const rows = await this.prisma.post.findMany({
+      where: { status: 'PUBLISHED' as any },
+      orderBy: { createdAt: 'desc' }
+    });
+    return rows.map(serializePost);
   }
 
-  create(data: { title: string; slug: string; excerpt?: string; content: string }) {
-    return this.prisma.post.create({ data });
+  async create(data: { title: string; slug: string; excerpt?: string; content: string }) {
+    const row = await this.prisma.post.create({
+      data: {
+        title: data.title,
+        slug: data.slug,
+        excerpt: data.excerpt,
+        content: data.content,
+        status: 'DRAFT' as any
+      }
+    });
+    return serializePost(row);
   }
 
-  async createAdvanced(data: {
+  createAdvanced(data: {
     title: string;
     slug: string;
     excerpt?: string;
@@ -24,46 +49,25 @@ export class PostsService {
     categories?: string[];
     tags?: string[];
   }) {
-    return this.prisma.$transaction(async (tx) => {
-      const post = await tx.post.create({
-        data: {
-          title: data.title,
-          slug: data.slug,
-          excerpt: data.excerpt,
-          content: data.content,
-          status: data.status ?? 'DRAFT',
-          seoTitle: data.seoTitle,
-          seoDescription: data.seoDescription
-        }
-      });
-
-      for (const slug of data.categories ?? []) {
-        const category = await tx.postCategory.upsert({
-          where: { slug },
-          update: {},
-          create: { slug, name: slug }
-        });
-        await tx.postCategoryMap.upsert({
-          where: { postId_categoryId: { postId: post.id, categoryId: category.id } },
-          update: {},
-          create: { postId: post.id, categoryId: category.id }
-        });
+    return this.prisma.post.upsert({
+      where: { slug: data.slug },
+      update: {
+        title: data.title,
+        excerpt: data.excerpt,
+        content: data.content,
+        status: ((data.status ?? 'DRAFT') as any),
+        seoTitle: data.seoTitle,
+        seoDescription: data.seoDescription
+      },
+      create: {
+        title: data.title,
+        slug: data.slug,
+        excerpt: data.excerpt,
+        content: data.content,
+        status: ((data.status ?? 'DRAFT') as any),
+        seoTitle: data.seoTitle,
+        seoDescription: data.seoDescription
       }
-
-      for (const slug of data.tags ?? []) {
-        const tag = await tx.postTag.upsert({
-          where: { slug },
-          update: {},
-          create: { slug, name: slug }
-        });
-        await tx.postTagMap.upsert({
-          where: { postId_tagId: { postId: post.id, tagId: tag.id } },
-          update: {},
-          create: { postId: post.id, tagId: tag.id }
-        });
-      }
-
-      return post;
-    });
+    }).then(serializePost);
   }
 }

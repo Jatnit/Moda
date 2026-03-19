@@ -32,7 +32,7 @@ export class PaymentsService {
       return { ok: false, reason: 'Missing orderId' };
     }
 
-    const status = payload.status === 'PAID' ? OrderStatus.PAID : OrderStatus.FAILED;
+    const status = payload.status === 'PAID' ? OrderStatus.PAID : OrderStatus.CANCELLED;
     await this.ordersService.updateStatus(payload.orderId, status, payload.transactionId);
 
     return { ok: true };

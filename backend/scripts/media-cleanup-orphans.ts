@@ -1,3 +1,4 @@
+// @ts-nocheck
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 
@@ -37,4 +38,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

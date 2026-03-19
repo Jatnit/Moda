@@ -16,204 +16,299 @@ enum UserRole {
 
 enum OrderStatus {
   PENDING
-  AWAITING_PAYMENT
+  CONFIRMED
   PAID
-  FAILED
-  CANCELLED
+  PROCESSING
+  SHIPPED
   COMPLETED
+  CANCELLED
+  REFUNDED
 }
 
 enum PageStatus {
   DRAFT
   PUBLISHED
+  ARCHIVED
+}
+
+enum UserStatus {
+  ACTIVE
+  LOCKED
+  PENDING
+  DELETED
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  PRIVATE
+  ARCHIVED
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
-  passwordHash String
-  refreshTokenHash String?
-  fullName     String
-  role         UserRole    @default(CUSTOMER)
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  orders       Order[]
-  auditLogs    AuditLog[]
-  pages        PageVersion[]
-  accessLogs   AccessLog[]
+  id             BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  email          String         @unique(map: "email")
+  fullName       String         @map("full_name") @db.VarChar(150)
+  passwordHash   String         @map("password_hash") @db.VarChar(255)
+  status         UserStatus     @default(ACTIVE)
+  createdAt      DateTime       @map("created_at") @default(now()) @db.Timestamp(0)
+  updatedAt      DateTime       @map("updated_at") @default(now()) @db.Timestamp(0)
+  roles          UserRoleMap[]
+  refreshTokens  RefreshToken[]
+
+  @@map("users")
+}
+
+model Role {
+  id          BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  code        UserRole      @unique(map: "code")
+  name        String        @db.VarChar(100)
+  description String?       @db.VarChar(255)
+  createdAt   DateTime      @map("created_at") @default(now()) @db.Timestamp(0)
+  updatedAt   DateTime      @map("updated_at") @default(now()) @db.Timestamp(0)
+  users       UserRoleMap[]
+
+  @@map("roles")
+}
+
+model UserRoleMap {
+  userId    BigInt   @map("user_id") @db.UnsignedBigInt
+  roleId    BigInt   @map("role_id") @db.UnsignedBigInt
+  createdAt DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "user_roles_ibfk_1")
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade, map: "user_roles_ibfk_2")
+
+  @@id([userId, roleId])
+  @@index([roleId], map: "role_id")
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId     BigInt    @map("user_id") @db.UnsignedBigInt
+  tokenHash  String    @map("token_hash") @unique(map: "token_hash") @db.VarChar(255)
+  userAgent  String?   @map("user_agent") @db.VarChar(255)
+  ipAddress  String?   @map("ip_address") @db.VarChar(64)
+  expiresAt  DateTime  @map("expires_at") @db.DateTime(0)
+  revokedAt  DateTime? @map("revoked_at") @db.DateTime(0)
+  createdAt  DateTime  @map("created_at") @default(now()) @db.Timestamp(0)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "refresh_tokens_ibfk_1")
+
+  @@index([expiresAt], map: "idx_refresh_tokens_expires")
+  @@index([userId], map: "idx_refresh_tokens_user")
+  @@map("refresh_tokens")
 }
 
 model Product {
-  id          String      @id @default(cuid())
+  id          BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  sku         String        @unique(map: "sku") @db.VarChar(80)
   name        String
-  slug        String      @unique
-  description String?
-  price       Decimal     @db.Decimal(10, 2)
-  stock       Int         @default(0)
-  images      Json
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  orderItems  OrderItem[]
+  slug        String        @unique(map: "slug")
+  description String?       @db.LongText
+  status      ProductStatus @default(DRAFT)
+  price       Decimal       @default(0.00) @db.Decimal(15, 2)
+  stock       Int           @map("stock_qty") @default(0)
+  createdAt   DateTime      @map("created_at") @default(now()) @db.Timestamp(0)
+  updatedAt   DateTime      @map("updated_at") @default(now()) @db.Timestamp(0)
+
+  @@map("products")
 }
 
 model Post {
-  id          String   @id @default(cuid())
-  title       String
-  slug        String   @unique
-  excerpt     String?
-  content     String   @db.LongText
-  status      String   @default("DRAFT")
-  seoTitle    String?
-  seoDescription String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  categories  PostCategoryMap[]
-  tags        PostTagMap[]
+  id             BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  title          String     @db.VarChar(255)
+  slug           String     @unique(map: "slug")
+  excerpt        String?    @db.Text
+  content        String?    @db.LongText
+  status         PostStatus @default(DRAFT)
+  seoTitle       String?    @map("seo_title")
+  seoDescription String?    @map("seo_description") @db.VarChar(255)
+  createdAt      DateTime   @map("created_at") @default(now()) @db.Timestamp(0)
+  updatedAt      DateTime   @map("updated_at") @default(now()) @db.Timestamp(0)
+
+  @@map("posts")
 }
 
 model Cart {
-  id        String     @id @default(cuid())
-  userId    String     @unique
-  items     Json
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id        BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  userId    BigInt?    @map("user_id") @db.UnsignedBigInt
+  status    carts_status @default(ACTIVE)
+  createdAt DateTime   @map("created_at") @default(now()) @db.Timestamp(0)
+  updatedAt DateTime   @map("updated_at") @default(now()) @db.Timestamp(0)
+  items     CartItem[]
+
+  @@index([userId], map: "user_id")
+  @@map("carts")
+}
+
+model CartItem {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  cartId    BigInt   @map("cart_id") @db.UnsignedBigInt
+  productId BigInt   @map("product_id") @db.UnsignedBigInt
+  quantity  Int      @default(1)
+  unitPrice Decimal  @map("unit_price") @db.Decimal(15, 2)
+  createdAt DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+  updatedAt DateTime @map("updated_at") @default(now()) @db.Timestamp(0)
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade, map: "cart_items_ibfk_1")
+
+  @@unique([cartId, productId], map: "uq_cart_product")
+  @@index([productId], map: "product_id")
+  @@map("cart_items")
 }
 
 model Order {
-  id            String      @id @default(cuid())
-  userId        String
-  status        OrderStatus @default(PENDING)
-  totalAmount   Decimal     @db.Decimal(10, 2)
-  paymentRef    String?
-  paymentMethod String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  user          User        @relation(fields: [userId], references: [id])
-  items         OrderItem[]
-  statusHistory OrderStatusHistory[]
+  id             BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  orderNo        String        @map("order_no") @unique(map: "order_no") @db.VarChar(40)
+  userId         BigInt?       @map("user_id") @db.UnsignedBigInt
+  cartId         BigInt?       @map("cart_id") @db.UnsignedBigInt
+  status         OrderStatus   @default(PENDING)
+  grandTotal     Decimal       @map("grand_total") @default(0.00) @db.Decimal(15, 2)
+  customerName   String        @map("customer_name") @db.VarChar(150)
+  customerEmail  String?
+  customerPhone  String        @map("customer_phone") @db.VarChar(30)
+  shippingLine1  String        @map("shipping_address_line1") @db.VarChar(255)
+  shippingCity   String        @map("shipping_city") @db.VarChar(100)
+  shippingCountry String       @map("shipping_country") @default("Vietnam") @db.VarChar(100)
+  createdAt      DateTime      @map("created_at") @default(now()) @db.Timestamp(0)
+  updatedAt      DateTime      @map("updated_at") @default(now()) @db.Timestamp(0)
+  items          OrderItem[]
+
+  @@index([cartId], map: "cart_id")
+  @@index([userId], map: "user_id")
+  @@map("orders")
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String
-  productId String
-  quantity  Int
-  unitPrice Decimal  @db.Decimal(10, 2)
-  order     Order    @relation(fields: [orderId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id])
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  orderId     BigInt   @map("order_id") @db.UnsignedBigInt
+  productId   BigInt?  @map("product_id") @db.UnsignedBigInt
+  sku         String   @db.VarChar(80)
+  productName String   @map("product_name")
+  quantity    Int
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(15, 2)
+  lineTotal   Decimal  @map("line_total") @db.Decimal(15, 2)
+  createdAt   DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade, map: "order_items_ibfk_1")
+
+  @@index([orderId], map: "order_id")
+  @@index([productId], map: "product_id")
+  @@map("order_items")
 }
 
 model Setting {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  value     Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  key         String   @map("setting_key") @unique(map: "setting_key") @db.VarChar(120)
+  value       String?  @map("setting_value") @db.LongText
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+  updatedAt   DateTime @map("updated_at") @default(now()) @db.Timestamp(0)
+
+  @@map("app_settings")
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  action      String
-  resource    String
-  resourceId  String?
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  user        User?    @relation(fields: [userId], references: [id])
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId     BigInt?  @map("actor_user_id") @db.UnsignedBigInt
+  action     String   @db.VarChar(100)
+  resource   String   @map("entity_type") @db.VarChar(100)
+  resourceId String   @map("entity_id") @db.VarChar(100)
+  metadata   String?  @map("new_values") @db.LongText
+  ipAddress  String?  @map("ip_address") @db.VarChar(64)
+  userAgent  String?  @map("user_agent") @db.VarChar(255)
+  createdAt  DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+
+  @@index([createdAt], map: "idx_audit_created")
+  @@map("audit_logs")
 }
 
 model Media {
-  id            String   @id @default(cuid())
-  publicId      String   @unique
-  secureUrl     String
-  resourceType  String
-  format        String
-  width         Int
-  height        Int
-  bytes         Int
-  folder        String
-  altText       String?
-  ownerType     String
-  ownerId       String?
-  createdBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  publicId     String              @map("public_id") @unique(map: "public_id") @db.VarChar(255)
+  secureUrl    String              @map("secure_url") @db.VarChar(500)
+  resourceType media_resource_type @map("resource_type") @default(image)
+  format       String?             @db.VarChar(20)
+  width        Int?                @db.UnsignedInt
+  height       Int?                @db.UnsignedInt
+  bytes        BigInt?             @db.UnsignedBigInt
+  folder       String?             @db.VarChar(255)
+  altText      String?             @map("alt_text") @db.VarChar(255)
+  createdBy    BigInt?             @map("created_by") @db.UnsignedBigInt
+  createdAt    DateTime            @map("created_at") @default(now()) @db.Timestamp(0)
+  updatedAt    DateTime            @map("updated_at") @default(now()) @db.Timestamp(0)
+
+  @@map("media")
 }
 
 model Page {
-  id        String       @id @default(cuid())
-  slug      String       @unique
-  status    PageStatus   @default(DRAFT)
-  themeId   String?
-  version   Int          @default(1)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  versions  PageVersion[]
+  id              BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  name            String     @default("Untitled")
+  slug            String     @unique(map: "slug")
+  status          PageStatus @default(DRAFT)
+  currentVersionNo Int       @map("current_version_no") @default(1) @db.UnsignedInt
+  createdAt       DateTime   @map("created_at") @default(now()) @db.Timestamp(0)
+  versions        PageVersion[]
+
+  @@map("builder_pages")
 }
 
 model PageVersion {
-  id         String   @id @default(cuid())
-  pageId     String
-  jsonSchema Json
-  createdBy  String?
-  createdAt  DateTime @default(now())
-  page       Page     @relation(fields: [pageId], references: [id])
-  user       User?    @relation(fields: [createdBy], references: [id])
-}
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  pageId      BigInt   @map("page_id") @db.UnsignedBigInt
+  versionNo   Int      @map("version_no") @db.UnsignedInt
+  jsonSchema  String   @map("schema_json") @db.LongText
+  isPublished Boolean  @map("is_published") @default(false)
+  createdAt   DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+  page        Page     @relation(fields: [pageId], references: [id], onDelete: Cascade, map: "builder_page_versions_ibfk_1")
 
-model OrderStatusHistory {
-  id         String   @id @default(cuid())
-  orderId    String
-  fromStatus String?
-  toStatus   String
-  note       String?
-  changedBy  String?
-  createdAt  DateTime @default(now())
-  order      Order    @relation(fields: [orderId], references: [id])
+  @@unique([pageId, versionNo], map: "uq_page_version")
+  @@map("builder_page_versions")
 }
 
 model PostCategory {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
-  posts     PostCategoryMap[]
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name      String   @db.VarChar(150)
+  slug      String   @unique(map: "slug")
+  createdAt DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+
+  @@map("post_categories")
 }
 
 model PostTag {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
-  posts     PostTagMap[]
-}
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name      String   @db.VarChar(100)
+  slug      String   @unique(map: "slug") @db.VarChar(120)
+  createdAt DateTime @map("created_at") @default(now()) @db.Timestamp(0)
 
-model PostCategoryMap {
-  postId     String
-  categoryId String
-  post       Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
-  category   PostCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@id([postId, categoryId])
-}
-
-model PostTagMap {
-  postId String
-  tagId  String
-  post   Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tag    PostTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([postId, tagId])
+  @@map("post_tags")
 }
 
 model AccessLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  ipAddress String?
-  device    String?
-  route     String
-  method    String
-  createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id])
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  userId    BigInt?  @map("user_id") @db.UnsignedBigInt
+  ipAddress String?  @map("ip_address") @db.VarChar(64)
+  device    String?  @map("user_agent") @db.VarChar(255)
+  route     String?  @map("reason") @db.VarChar(255)
+  method    Boolean? @map("success")
+  createdAt DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+
+  @@map("login_logs")
+}
+
+enum media_resource_type {
+  image
+  video
+  raw
+}
+
+enum carts_status {
+  ACTIVE
+  ORDERED
+  ABANDONED
 }
