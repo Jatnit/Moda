@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import './AuthPage.css';
 
 export function AuthPage() {
   const navigate = useNavigate();
@@ -9,10 +10,13 @@ export function AuthPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [result, setResult] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    setError('');
+    setLoading(true);
     try {
       const endpoint = mode === 'login' ? '/auth/login' : '/auth/register';
       const payload = mode === 'login' ? { email, password } : { email, password, fullName };
@@ -22,60 +26,129 @@ export function AuthPage() {
       if (token) {
         localStorage.setItem('moda_access_token', token);
       }
-      setResult(JSON.stringify(response.data, null, 2));
       if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'EDITOR') {
         navigate('/admin');
       } else {
         navigate('/account');
       }
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
         const message =
-          (error.response?.data as any)?.message ??
-          error.response?.statusText ??
-          error.message ??
-          'Auth request failed.';
-        setResult(typeof message === 'string' ? message : JSON.stringify(message, null, 2));
+          (err.response?.data as any)?.message ??
+          err.response?.statusText ??
+          err.message ??
+          'Đã xảy ra lỗi.';
+        setError(typeof message === 'string' ? message : JSON.stringify(message));
         return;
       }
-      setResult('Auth request failed.');
+      setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <section className="page-section">
-      <div className="auth-layout">
-        <div className="auth-card">
-          <h2>{mode === 'login' ? 'Login' : 'Register'}</h2>
-          <p className="muted">Access your account to continue shopping and checkout.</p>
-          <form onSubmit={submit} className="stack">
-            {mode === 'register' ? (
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name" />
-            ) : null}
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              placeholder="Password"
-            />
-            <button type="submit">{mode === 'login' ? 'Login' : 'Register'}</button>
+    <div className="auth-page container animate-fade-up">
+      <div className="auth-page__layout">
+        {/* Form side */}
+        <div className="auth-page__form-card">
+          <div className="auth-page__header">
+            <h2>{mode === 'login' ? 'Chào mừng trở lại' : 'Tạo tài khoản'}</h2>
+            <p className="text-muted">
+              {mode === 'login'
+                ? 'Đăng nhập để tiếp tục mua sắm và quản lý đơn hàng.'
+                : 'Đăng ký để nhận ưu đãi đặc biệt dành cho thành viên.'}
+            </p>
+          </div>
+
+          <form onSubmit={submit} className="auth-page__form">
+            {mode === 'register' && (
+              <div className="auth-page__field">
+                <label htmlFor="auth-fullname">Họ và tên</label>
+                <input
+                  id="auth-fullname"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Họ và tên của bạn"
+                  required
+                />
+              </div>
+            )}
+            <div className="auth-page__field">
+              <label htmlFor="auth-email">Email</label>
+              <input
+                id="auth-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@example.com"
+                required
+              />
+            </div>
+            <div className="auth-page__field">
+              <label htmlFor="auth-password">Mật khẩu</label>
+              <input
+                id="auth-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            {error && <div className="auth-page__error">{error}</div>}
+
+            <button type="submit" className="btn-accent auth-page__submit" disabled={loading}>
+              {loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}
+            </button>
           </form>
-          <button className="ghost" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-            Switch to {mode === 'login' ? 'Register' : 'Login'}
-          </button>
+
+          <div className="auth-page__switch">
+            <span className="text-muted">
+              {mode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
+            </span>
+            <button
+              type="button"
+              className="auth-page__switch-btn"
+              onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
+            >
+              {mode === 'login' ? 'Đăng ký ngay' : 'Đăng nhập'}
+            </button>
+          </div>
         </div>
-        <aside className="auth-side">
-          <h3>Moda Club Benefits</h3>
-          <p>Nhận ưu đãi sớm cho collection mới, mã giảm giá theo hạng và lịch sử mua hàng cá nhân hóa.</p>
-          <div className="chip-row">
-            <span className="chip">Early Access</span>
-            <span className="chip">Member Price</span>
-            <span className="chip">Style Profile</span>
+
+        {/* Right side */}
+        <aside className="auth-page__side">
+          <div className="auth-page__side-content">
+            <h3>Moda Club</h3>
+            <p>Tham gia cộng đồng thời trang trẻ trung và nhận nhiều ưu đãi độc quyền.</p>
+            <div className="auth-page__benefits">
+              <div className="auth-page__benefit">
+                <span className="auth-page__benefit-icon">🎯</span>
+                <div>
+                  <strong>Early Access</strong>
+                  <p>Xem trước bộ sưu tập mới</p>
+                </div>
+              </div>
+              <div className="auth-page__benefit">
+                <span className="auth-page__benefit-icon">💰</span>
+                <div>
+                  <strong>Member Price</strong>
+                  <p>Giá ưu đãi dành riêng</p>
+                </div>
+              </div>
+              <div className="auth-page__benefit">
+                <span className="auth-page__benefit-icon">✨</span>
+                <div>
+                  <strong>Style Profile</strong>
+                  <p>Gợi ý cá nhân hóa</p>
+                </div>
+              </div>
+            </div>
           </div>
         </aside>
       </div>
-      <pre>{result}</pre>
-    </section>
+    </div>
   );
 }

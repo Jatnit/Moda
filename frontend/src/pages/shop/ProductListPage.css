@@ -1,0 +1,101 @@
+/* ── Products Page ── */
+.products-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
+  padding-top: var(--space-3xl);
+  padding-bottom: var(--space-3xl);
+}
+
+.products-page__header {
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--line-light);
+}
+
+/* Filters */
+.products-page__filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.products-page__search-wrap {
+  position: relative;
+  max-width: 400px;
+}
+.products-page__search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--mist);
+  pointer-events: none;
+}
+.products-page__search {
+  padding-left: 42px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-elevated);
+}
+.products-page__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+/* Grid */
+.products-page__grid-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.products-page__count {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+}
+.products-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-xl);
+}
+
+/* Empty state */
+.products-page__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+  padding: var(--space-4xl) 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* CTA */
+.products-page__cta {
+  margin-top: var(--space-xl);
+}
+.products-page__cta-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  padding: var(--space-2xl);
+  background: linear-gradient(135deg, rgba(237, 199, 183, 0.3), rgba(238, 226, 220, 0.6));
+  border: 1px solid var(--line-light);
+  border-radius: var(--radius-xl);
+}
+.products-page__cta-content h4 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+}
+
+@media (max-width: 600px) {
+  .products-page__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+  }
+  .products-page__cta-content {
+    flex-direction: column;
+    text-align: center;
+  }
+}
