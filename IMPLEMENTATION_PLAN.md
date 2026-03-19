@@ -246,6 +246,26 @@ project-root/
 - Đã test:
   - `backend`: `npm run prisma:generate` ✅, `npm run build` ✅, `npm test -- --runInBand` ✅
   - `frontend`: `npm run build` ✅
+
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 8)
+
+- Hoàn thành Media nâng cao (Phase 2 - 3.10):
+  - Folder chuẩn theo owner type đã áp dụng ở signed-upload
+  - Bổ sung API variants 3 size chuẩn:
+    - `GET /api/v1/media/variants?url=...` -> `thumb/medium/large`
+  - Bổ sung cleanup orphan media:
+    - API: `POST /api/v1/media/cleanup-orphans`
+    - script định kỳ: `npm run media:cleanup-orphans`
+  - Bổ sung replace policy:
+    - `attach` hỗ trợ `replaceExisting=true` để xóa metadata ảnh cũ cùng owner
+- File chính:
+  - `backend/src/modules/media/media.service.ts`
+  - `backend/src/modules/media/media.controller.ts`
+  - `backend/src/modules/media/dto/attach-media.dto.ts`
+  - `backend/scripts/media-cleanup-orphans.ts`
+- Đã test:
+  - `backend`: `npm run prisma:generate` ✅, `npm run build` ✅, `npm test -- --runInBand` ✅ (5 suites, 8 tests)
+  - `frontend`: `npm run build` ✅
   - Ghi chú: các bước external e2e cần credential thật (SEPAY/Cloudinary) chưa chạy trên môi trường hiện tại.
 
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
@@ -308,10 +328,10 @@ project-root/
 
 ### 3.10 Media nâng cao
 
-- [ ] Chuẩn folder Cloudinary theo owner type
-- [ ] Tạo 3 kích thước chuẩn: thumb/medium/large
-- [ ] Dọn ảnh mồ côi định kỳ (orphan cleanup)
-- [ ] Chính sách thay ảnh không tạo rác dữ liệu
+- [x] Chuẩn folder Cloudinary theo owner type
+- [x] Tạo 3 kích thước chuẩn: thumb/medium/large
+- [x] Dọn ảnh mồ côi định kỳ (orphan cleanup)
+- [x] Chính sách thay ảnh không tạo rác dữ liệu
 
 ### 3.11 DoD Phase 2
 
@@ -457,6 +477,11 @@ Sau mỗi lần hoàn thành task:
 - [2026-03-19] Quyết định: Builder Pro lưu reusable blocks trong `settings` key `builder_reusable_blocks` để tránh thêm bảng mới giai đoạn này.
   - Lý do: triển khai nhanh feature reusable block mà vẫn giữ khả năng mở rộng sang bảng riêng sau.
   - Ảnh hưởng: khi số lượng reusable lớn cần tách model chuyên dụng để query/filter tốt hơn.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: Media replace policy dùng `replaceExisting=true` ở attach API để tự dọn metadata ảnh cũ theo cùng owner.
+  - Lý do: tránh tích lũy ảnh rác khi người dùng thay ảnh nhiều lần.
+  - Ảnh hưởng: cần đảm bảo frontend gửi đúng ownerType/ownerId khi replace.
   - Người xác nhận: Pending user review
 
 ---

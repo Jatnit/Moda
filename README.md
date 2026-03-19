@@ -31,6 +31,11 @@ Monorepo scaffold theo `IMPLEMENTATION_PLAN.md` với kiến trúc tách `fronte
 - Swagger UI: `http://localhost:3000/docs`
 - OpenAPI JSON: `http://localhost:3000/docs-json`
 
+## Utility commands
+
+- WordPress migration: `cd backend && npm run migrate:wp`
+- Media orphan cleanup: `cd backend && npm run media:cleanup-orphans`
+
 ## API prefixes
 
 Tất cả endpoint backend dùng prefix: `/api/v1/*`

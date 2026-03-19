@@ -78,7 +78,8 @@ export function MediaUploader() {
         bytes: payload.bytes,
         folder: payload.folder,
         ownerType,
-        ownerId: ownerId.trim() || undefined
+        ownerId: ownerId.trim() || undefined,
+        replaceExisting: true
       });
 
       setMessage('Upload success.');
