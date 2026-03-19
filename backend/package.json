@@ -12,7 +12,9 @@
     "test:cov": "jest --coverage",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "seed:internal": "ts-node scripts/seed-internal.ts",
     "migrate:wp": "ts-node scripts/wp-migrate.ts",
+    "rollback:wp": "ts-node scripts/wp-rollback.ts",
     "media:cleanup-orphans": "ts-node scripts/media-cleanup-orphans.ts"
   },
   "dependencies": {

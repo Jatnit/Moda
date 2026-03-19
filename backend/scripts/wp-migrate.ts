@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import mysql from 'mysql2/promise';
 import { RowDataPacket } from 'mysql2';
 
@@ -29,6 +31,24 @@ type RunRow = RowDataPacket & {
   id: number;
   success_count: number;
   failed_count: number;
+};
+
+type RollbackReport = {
+  runId: number;
+  sourceFile: string;
+  generatedAt: string;
+  created: {
+    posts: string[];
+    categories: string[];
+    tags: string[];
+    mediaPublicIds: string[];
+  };
+  updated: {
+    posts: string[];
+    categories: string[];
+    tags: string[];
+    mediaPublicIds: string[];
+  };
 };
 
 function env(name: string, fallback?: string): string {
@@ -95,6 +115,14 @@ async function main() {
   let runId = 0;
   let successCount = 0;
   let failedCount = 0;
+  const createdPosts = new Set<string>();
+  const updatedPosts = new Set<string>();
+  const createdCategories = new Set<string>();
+  const updatedCategories = new Set<string>();
+  const createdTags = new Set<string>();
+  const updatedTags = new Set<string>();
+  const createdMedia = new Set<string>();
+  const updatedMedia = new Set<string>();
 
   try {
     const [runResult] = await target.execute<mysql.ResultSetHeader>(
@@ -108,6 +136,8 @@ async function main() {
        FROM ${wpPrefix}posts
        WHERE post_type = 'post' AND post_status NOT IN ('auto-draft','trash','inherit')`
     );
+    const [existingPostRows] = await target.query<Array<RowDataPacket & { slug: string }>>(`SELECT slug FROM posts`);
+    const existingPostSlugs = new Set(existingPostRows.map((row) => row.slug));
 
     for (const row of posts) {
       try {
@@ -118,7 +148,7 @@ async function main() {
         await target.execute(
           `INSERT INTO posts (title, slug, excerpt, content, status, published_at)
            VALUES (?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
+          ON DUPLICATE KEY UPDATE
              title = VALUES(title),
              excerpt = VALUES(excerpt),
              content = VALUES(content),
@@ -126,6 +156,12 @@ async function main() {
              published_at = VALUES(published_at)`,
           [row.post_title || `Post ${row.ID}`, slug, row.post_excerpt, row.post_content, status, publishedAt]
         );
+        if (existingPostSlugs.has(slug)) {
+          updatedPosts.add(slug);
+        } else {
+          createdPosts.add(slug);
+          existingPostSlugs.add(slug);
+        }
         successCount += 1;
       } catch (error) {
         failedCount += 1;
@@ -139,22 +175,40 @@ async function main() {
        WHERE tt.taxonomy IN ('category', 'post_tag')`
     );
 
+    const [existingCategoryRows] = await target.query<Array<RowDataPacket & { slug: string }>>(`SELECT slug FROM post_categories`);
+    const [existingTagRows] = await target.query<Array<RowDataPacket & { slug: string }>>(`SELECT slug FROM post_tags`);
+    const existingCategorySlugs = new Set(existingCategoryRows.map((row) => row.slug));
+    const existingTagSlugs = new Set(existingTagRows.map((row) => row.slug));
+
     for (const term of terms) {
       try {
+        const slug = term.slug || slugify(term.name);
         if (term.taxonomy === 'category') {
           await target.execute(
             `INSERT INTO post_categories (name, slug)
              VALUES (?, ?)
              ON DUPLICATE KEY UPDATE name = VALUES(name)`,
-            [term.name, term.slug || slugify(term.name)]
+            [term.name, slug]
           );
+          if (existingCategorySlugs.has(slug)) {
+            updatedCategories.add(slug);
+          } else {
+            createdCategories.add(slug);
+            existingCategorySlugs.add(slug);
+          }
         } else {
           await target.execute(
             `INSERT INTO post_tags (name, slug)
              VALUES (?, ?)
              ON DUPLICATE KEY UPDATE name = VALUES(name)`,
-            [term.name, term.slug || slugify(term.name)]
+            [term.name, slug]
           );
+          if (existingTagSlugs.has(slug)) {
+            updatedTags.add(slug);
+          } else {
+            createdTags.add(slug);
+            existingTagSlugs.add(slug);
+          }
         }
         successCount += 1;
       } catch {
@@ -167,6 +221,9 @@ async function main() {
        FROM ${wpPrefix}posts
        WHERE post_type = 'attachment' AND post_mime_type LIKE 'image/%'`
     );
+
+    const [existingMediaRows] = await target.query<Array<RowDataPacket & { public_id: string }>>(`SELECT public_id FROM media`);
+    const existingPublicIds = new Set(existingMediaRows.map((row) => row.public_id));
 
     for (const attachment of attachments) {
       if (!attachment.guid) continue;
@@ -183,6 +240,12 @@ async function main() {
              alt_text = VALUES(alt_text)`,
           [publicId, attachment.guid, format, publicId.split('/').slice(0, -1).join('/'), attachment.post_title]
         );
+        if (existingPublicIds.has(publicId)) {
+          updatedMedia.add(publicId);
+        } else {
+          createdMedia.add(publicId);
+          existingPublicIds.add(publicId);
+        }
         successCount += 1;
       } catch {
         failedCount += 1;
@@ -201,7 +264,32 @@ async function main() {
       [runId]
     );
     const run = rows[0];
+
+    const report: RollbackReport = {
+      runId: run.id,
+      sourceFile,
+      generatedAt: new Date().toISOString(),
+      created: {
+        posts: [...createdPosts],
+        categories: [...createdCategories],
+        tags: [...createdTags],
+        mediaPublicIds: [...createdMedia]
+      },
+      updated: {
+        posts: [...updatedPosts],
+        categories: [...updatedCategories],
+        tags: [...updatedTags],
+        mediaPublicIds: [...updatedMedia]
+      }
+    };
+
+    const reportDir = path.resolve(__dirname, 'reports');
+    await fs.mkdir(reportDir, { recursive: true });
+    const reportPath = path.join(reportDir, `wp-import-run-${run.id}.json`);
+    await fs.writeFile(reportPath, JSON.stringify(report, null, 2), 'utf8');
+
     console.log(`WP import run #${run.id} done: success=${run.success_count}, failed=${run.failed_count}`);
+    console.log(`Rollback report saved: ${reportPath}`);
   } catch (error) {
     if (runId > 0) {
       await target.execute(

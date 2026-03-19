@@ -1,7 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
-import { ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { CreateTermDto } from './dto/create-term.dto';
+import { LockUserDto } from './dto/lock-user.dto';
+import { LogAccessDto } from './dto/log-access.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdatePostAdvancedDto } from './dto/update-post-advanced.dto';
+import { UpdateTermDto } from './dto/update-term.dto';
+import { UpsertPostAdvancedDto } from './dto/upsert-post-advanced.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -9,11 +15,13 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('dashboard')
+  @ApiOperation({ summary: 'Admin dashboard stats' })
   dashboard() {
     return this.adminService.dashboard();
   }
 
   @Get('orders')
+  @ApiOperation({ summary: 'List all orders for admin' })
   listOrders() {
     return this.adminService.listOrders();
   }
@@ -24,7 +32,7 @@ export class AdminController {
   }
 
   @Patch('orders/:id/status')
-  updateOrderStatus(@Param('id') id: string, @Body() body: { status: OrderStatus; note?: string }) {
+  updateOrderStatus(@Param('id') id: string, @Body() body: UpdateOrderStatusDto) {
     return this.adminService.updateOrderStatus(id, body.status, body.note);
   }
 
@@ -34,7 +42,7 @@ export class AdminController {
   }
 
   @Patch('users/:id/lock')
-  lockUser(@Param('id') id: string, @Body() body: { locked: boolean }) {
+  lockUser(@Param('id') id: string, @Body() body: LockUserDto) {
     return this.adminService.lockUser(id, !!body.locked);
   }
 
@@ -49,8 +57,18 @@ export class AdminController {
   }
 
   @Post('posts/categories')
-  createCategory(@Body() body: { name: string; slug: string }) {
+  createCategory(@Body() body: CreateTermDto) {
     return this.adminService.createCategory(body.name, body.slug);
+  }
+
+  @Patch('posts/categories/:id')
+  updateCategory(@Param('id') id: string, @Body() body: UpdateTermDto) {
+    return this.adminService.updateCategory(id, body);
+  }
+
+  @Delete('posts/categories/:id')
+  deleteCategory(@Param('id') id: string) {
+    return this.adminService.deleteCategory(id);
   }
 
   @Get('posts/tags')
@@ -59,17 +77,47 @@ export class AdminController {
   }
 
   @Post('posts/tags')
-  createTag(@Body() body: { name: string; slug: string }) {
+  createTag(@Body() body: CreateTermDto) {
     return this.adminService.createTag(body.name, body.slug);
   }
 
+  @Patch('posts/tags/:id')
+  updateTag(@Param('id') id: string, @Body() body: UpdateTermDto) {
+    return this.adminService.updateTag(id, body);
+  }
+
+  @Delete('posts/tags/:id')
+  deleteTag(@Param('id') id: string) {
+    return this.adminService.deleteTag(id);
+  }
+
   @Post('posts')
-  createPost(@Body() body: any) {
+  createPost(@Body() body: UpsertPostAdvancedDto) {
     return this.adminService.createPostAdvanced(body);
   }
 
+  @Get('posts')
+  listPosts() {
+    return this.adminService.listPostsAdvanced();
+  }
+
+  @Get('posts/:id')
+  postDetail(@Param('id') id: string) {
+    return this.adminService.getPostAdvanced(id);
+  }
+
+  @Patch('posts/:id')
+  updatePost(@Param('id') id: string, @Body() body: UpdatePostAdvancedDto) {
+    return this.adminService.updatePostAdvanced(id, body);
+  }
+
+  @Delete('posts/:id')
+  deletePost(@Param('id') id: string) {
+    return this.adminService.deletePostAdvanced(id);
+  }
+
   @Post('access-logs')
-  logAccess(@Body() body: { userId?: string; ipAddress?: string; device?: string; route: string; method: string }) {
+  logAccess(@Body() body: LogAccessDto) {
     return this.adminService.logAccess(body);
   }
 

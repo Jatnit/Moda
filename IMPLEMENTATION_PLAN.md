@@ -14,7 +14,7 @@ Xây dựng hệ thống web bán hàng production-ready, có:
 
 - Shop + Cart + Checkout + Thanh toán SEPAY
 - Admin quản lý users/products/orders/posts/settings
-- Migration dữ liệu từ WordPress DB `[TEN_FILE_DB]`
+- Seed dữ liệu nội bộ (không bắt buộc WordPress migration trong scope hiện tại)
 - Builder 3 mức: Basic, Pro, Advanced
 - Bảo mật chuẩn cao, dễ mở rộng, dễ bảo trì
 - Frontend/Backend tách biệt, chạy độc lập
@@ -268,6 +268,36 @@ project-root/
   - `frontend`: `npm run build` ✅
   - Ghi chú: các bước external e2e cần credential thật (SEPAY/Cloudinary) chưa chạy trên môi trường hiện tại.
 
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 9)
+
+- Hoàn thiện phần còn thiếu của DoD 3.11:
+  - Admin CRUD đầy đủ cho nhóm posts/category/tag:
+    - categories: `GET/POST/PATCH/DELETE /api/v1/admin/posts/categories*`
+    - tags: `GET/POST/PATCH/DELETE /api/v1/admin/posts/tags*`
+    - posts: `GET/POST/GET:id/PATCH:id/DELETE:id /api/v1/admin/posts*`
+  - Chuẩn hóa request validation bằng DTO cho admin advanced endpoints (order status, lock user, post/category/tag, access log)
+  - Bổ sung migration rollback data:
+    - script rollback: `npm run rollback:wp`
+    - migration script sinh report rollback ở `backend/scripts/reports/wp-import-run-<id>.json`
+    - tài liệu rollback cập nhật tại `backend/scripts/README_WP_MIGRATION.md`
+  - Cập nhật docs vận hành ở `README.md` (luồng chạy local không Docker + rollback command)
+- Đã test:
+  - `backend`: `npm run build` ✅, `npm test -- --runInBand` ✅ (5 suites, 8 tests)
+  - `frontend`: `npm run build` ✅
+- Ghi chú:
+  - Hiện DB chỉ có `ecommerce_cms.wp_import_runs`, chưa có bảng nguồn WP (`wp_posts`, `wp_terms`, ...), nên mục "Import dữ liệu WordPress thật" chưa thể tick.
+
+### Cập nhật tiến độ gần nhất (2026-03-19, lượt 10)
+
+- Theo xác nhận mới của người dùng: không dùng WordPress import trong scope hiện tại.
+- Đã chuyển hướng 3.7 sang seed nội bộ:
+  - thêm script `backend/scripts/seed-internal.ts`
+  - thêm lệnh `npm run seed:internal`
+  - seed idempotent cho `posts`, `post_categories`, `post_tags`, `media`, `products`
+- Đã cập nhật README và checklist DoD Phase 2 theo hướng seed nội bộ cho local dev.
+- Đã chạy seed thật trên DB `ecommerce_cms`:
+  - `posts=3`, `categories=3`, `tags=3`, `media=4`, `products=4`
+
 ### Cập nhật tiến độ gần nhất (2026-03-18, lượt 3)
 
 - Hoàn thành bảo mật MVP core:
@@ -301,14 +331,14 @@ project-root/
 
 ## Phase 2 — Hoàn thiện nghiệp vụ
 
-**Mục tiêu:** Nâng admin + migration WordPress + builder mức 2.
+**Mục tiêu:** Nâng admin + seed dữ liệu nội bộ + builder mức 2.
 
-### 3.7 Migration WordPress
+### 3.7 Seed dữ liệu nội bộ (thay cho WordPress migration)
 
-- [x] Đọc DB `[TEN_FILE_DB]` (qua `WP_DATABASE_URL` hoặc bộ env WP_DB_*)
-- [x] Mapping `wp_posts`, taxonomy, media, slug, excerpt
-- [x] Script idempotent (chạy lại không trùng)
-- [x] Báo cáo migrate success/fail
+- [x] Script seed idempotent cho posts/category/tag/media/products
+- [x] Chạy seed local thành công bằng `npm run seed:internal`
+- [x] Có hướng dẫn sử dụng trong README
+- [x] Giữ script WordPress migration dạng tùy chọn (không bắt buộc DoD)
 
 ### 3.8 Admin nâng cao
 
@@ -335,14 +365,14 @@ project-root/
 
 ### 3.11 DoD Phase 2
 
-- [ ] Import được dữ liệu WordPress thật
-- [ ] Admin dùng được đầy đủ CRUD cần thiết
-- [ ] Builder mức 2 hoạt động ổn định
-- [ ] Có tài liệu migration + rollback data
-- [ ] Docs API cập nhật endpoint mới đầy đủ
-- [ ] Quản lý ảnh ổn định
+- [x] Seed được dữ liệu nội bộ thật cho local dev
+- [x] Admin dùng được đầy đủ CRUD cần thiết
+- [x] Builder mức 2 hoạt động ổn định
+- [x] Có tài liệu migration + rollback data
+- [x] Docs API cập nhật endpoint mới đầy đủ
+- [x] Quản lý ảnh ổn định
 
-**Trạng thái Phase 2:** ⬜ Not Started / 🟡 In Progress / ✅ Done  
+**Trạng thái Phase 2:** ✅ Done  
 **Bằng chứng:** (report migrate, screenshot, commit hash)
 
 ---
@@ -483,6 +513,16 @@ Sau mỗi lần hoàn thành task:
   - Lý do: tránh tích lũy ảnh rác khi người dùng thay ảnh nhiều lần.
   - Ảnh hưởng: cần đảm bảo frontend gửi đúng ownerType/ownerId khi replace.
   - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: WP migration sinh `rollback report` theo run (`backend/scripts/reports/wp-import-run-<id>.json`) và rollback chỉ xóa bản ghi mới tạo.
+  - Lý do: tránh xóa nhầm dữ liệu đã tồn tại trước import khi cần rollback.
+  - Ảnh hưởng: để rollback đầy đủ run cũ, cần giữ file report tương ứng.
+  - Người xác nhận: Pending user review
+
+- [2026-03-19] Quyết định: Scope hiện tại không bắt buộc WordPress import; dùng seed nội bộ cho local development.
+  - Lý do: người dùng xác nhận không dùng import WordPress.
+  - Ảnh hưởng: DoD 3.11 chuyển tiêu chí từ "import WP thật" sang "seed dữ liệu nội bộ thật".
+  - Người xác nhận: User confirmed
 
 ---
 

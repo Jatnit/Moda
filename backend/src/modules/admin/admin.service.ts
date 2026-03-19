@@ -104,6 +104,34 @@ export class AdminService {
     });
   }
 
+  updateCategory(id: string, input: { name?: string; slug?: string }) {
+    return this.prisma.postCategory.update({
+      where: { id },
+      data: {
+        ...(input.name ? { name: input.name } : {}),
+        ...(input.slug ? { slug: input.slug } : {})
+      }
+    });
+  }
+
+  deleteCategory(id: string) {
+    return this.prisma.postCategory.delete({ where: { id } });
+  }
+
+  updateTag(id: string, input: { name?: string; slug?: string }) {
+    return this.prisma.postTag.update({
+      where: { id },
+      data: {
+        ...(input.name ? { name: input.name } : {}),
+        ...(input.slug ? { slug: input.slug } : {})
+      }
+    });
+  }
+
+  deleteTag(id: string) {
+    return this.prisma.postTag.delete({ where: { id } });
+  }
+
   createPostAdvanced(input: {
     title: string;
     slug: string;
@@ -160,6 +188,83 @@ export class AdminService {
 
       return post;
     });
+  }
+
+  listPostsAdvanced() {
+    return this.prisma.post.findMany({
+      include: {
+        categories: { include: { category: true } },
+        tags: { include: { tag: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  getPostAdvanced(id: string) {
+    return this.prisma.post.findUnique({
+      where: { id },
+      include: {
+        categories: { include: { category: true } },
+        tags: { include: { tag: true } }
+      }
+    });
+  }
+
+  updatePostAdvanced(id: string, input: {
+    title?: string;
+    slug?: string;
+    excerpt?: string;
+    content?: string;
+    status?: string;
+    seoTitle?: string;
+    seoDescription?: string;
+    categories?: string[];
+    tags?: string[];
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      const post = await tx.post.update({
+        where: { id },
+        data: {
+          ...(input.title ? { title: input.title } : {}),
+          ...(input.slug ? { slug: input.slug } : {}),
+          ...(input.excerpt !== undefined ? { excerpt: input.excerpt } : {}),
+          ...(input.content ? { content: input.content } : {}),
+          ...(input.status ? { status: input.status } : {}),
+          ...(input.seoTitle !== undefined ? { seoTitle: input.seoTitle } : {}),
+          ...(input.seoDescription !== undefined ? { seoDescription: input.seoDescription } : {})
+        }
+      });
+
+      if (input.categories) {
+        await tx.postCategoryMap.deleteMany({ where: { postId: post.id } });
+        for (const categorySlug of input.categories) {
+          const category = await tx.postCategory.upsert({
+            where: { slug: categorySlug },
+            update: {},
+            create: { slug: categorySlug, name: categorySlug }
+          });
+          await tx.postCategoryMap.create({ data: { postId: post.id, categoryId: category.id } });
+        }
+      }
+
+      if (input.tags) {
+        await tx.postTagMap.deleteMany({ where: { postId: post.id } });
+        for (const tagSlug of input.tags) {
+          const tag = await tx.postTag.upsert({
+            where: { slug: tagSlug },
+            update: {},
+            create: { slug: tagSlug, name: tagSlug }
+          });
+          await tx.postTagMap.create({ data: { postId: post.id, tagId: tag.id } });
+        }
+      }
+
+      return post;
+    });
+  }
+
+  deletePostAdvanced(id: string) {
+    return this.prisma.post.delete({ where: { id } });
   }
 
   logAccess(input: { userId?: string; ipAddress?: string; device?: string; route: string; method: string }) {

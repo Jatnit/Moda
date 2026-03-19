@@ -38,3 +38,37 @@ Optional:
 cd backend
 npm run migrate:wp
 ```
+
+## Output report for rollback
+
+After each import run, script creates:
+
+- `backend/scripts/reports/wp-import-run-<runId>.json`
+
+This report stores keys that were:
+
+- newly created (`created`)
+- already existing but updated (`updated`)
+
+Use this report to run safe rollback for created records only.
+
+## Rollback import run
+
+```bash
+cd backend
+npm run rollback:wp -- --report=/absolute/path/to/backend/scripts/reports/wp-import-run-123.json
+```
+
+or set env:
+
+```bash
+export WP_ROLLBACK_FILE=/absolute/path/to/backend/scripts/reports/wp-import-run-123.json
+npm run rollback:wp
+```
+
+Rollback behavior:
+
+- remove created `posts`
+- remove created `media` by `public_id`
+- remove created `post_categories` and `post_tags` only if they are not referenced anymore
+- does not revert rows that were only updated (for safety)
